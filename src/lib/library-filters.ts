@@ -106,15 +106,32 @@ export function searchKey(value: string): string {
 }
 
 const NUMBER_TERM = /^#?(\w{1,8})(?:\/\w{1,8})?$/;
+/** Слово из одних цифр («151», «#25», «3/21») — это номер карты, а не имя сета. */
+const DIGITS_TERM = /^#?\d+(?:\/\d+)?$/;
+
+/** Слова запроса: без регистра и диакритики. */
+export function queryTerms(query: string): string[] {
+  return searchKey(query).split(' ').filter(Boolean);
+}
+
+/** Имена карты для поиска: показанное, английское и напечатанное. */
+export function cardNames(card: Pick<AlbumCard, 'name' | 'englishName' | 'printed'>): string[] {
+  return [card.name, card.englishName, card.printed?.name, card.printed?.englishName]
+    .filter((name): name is string => Boolean(name))
+    .map(searchKey);
+}
 
 /**
- * Каждое слово запроса должно найтись в одном из имён карты. Слово с цифрами
- * («125», «#125», «125/197») ещё и сверяется с номером карты.
+ * Каждое слово запроса должно найтись в одном из имён карты или в сете (имя или код:
+ * «Surging Sparks», «SV2a», «MBG»). Слово с цифрами («125», «#125», «125/197») ещё и
+ * сверяется с номером карты; слово из одних цифр в сете не ищется, иначе «151» нашло бы
+ * весь сет «151», а не карту № 151.
  */
 export function matchesQuery(card: AlbumCard, query: string): boolean {
-  const terms = searchKey(query).split(' ').filter(Boolean);
+  const terms = queryTerms(query);
   if (terms.length === 0) return true;
-  const haystack = [card.name, card.englishName, card.printed?.name, card.printed?.englishName]
+  const haystack = cardNames(card).join(' | ');
+  const sets = [card.setName, card.setId, card.printed?.setCode]
     .filter((name): name is string => Boolean(name))
     .map(searchKey)
     .join(' | ');
@@ -122,7 +139,8 @@ export function matchesQuery(card: AlbumCard, query: string): boolean {
   return terms.every((term) => {
     if (haystack.includes(term)) return true;
     const numeric = /\d/.test(term) ? NUMBER_TERM.exec(term) : null;
-    return Boolean(numeric && number && normalizeNumber(numeric[1]!) === number);
+    if (numeric && number && normalizeNumber(numeric[1]!) === number) return true;
+    return !DIGITS_TERM.test(term) && sets.includes(term);
   });
 }
 
@@ -497,6 +515,15 @@ const short = (value: unknown, max: number): string | null =>
 
 function pick<T extends string>(value: unknown, allowed: readonly T[]): T | null {
   return (allowed as readonly unknown[]).includes(value) ? (value as T) : null;
+}
+
+/**
+ * Поиск из шапки вкладки: альбом открывается с этим запросом и без остальных фильтров
+ * (иначе старый фильтр сета или цены спрятал бы найденное), с первого разворота. Вид и
+ * сортировка остаются.
+ */
+export function withSearch(state: LibraryState, query: string): LibraryState {
+  return { ...state, filters: { ...NO_FILTERS, query: query.trim().slice(0, 80) }, spread: 0 };
 }
 
 /** Состояние альбома из sessionStorage: всё непонятное заменяется значением по умолчанию. */

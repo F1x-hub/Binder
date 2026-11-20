@@ -3,6 +3,7 @@ import {
   DEFAULT_LIBRARY_STATE,
   NO_FILTERS,
   parseLibraryState,
+  withSearch,
   type LibraryFilters,
   type LibrarySort,
   type LibraryState,
@@ -28,17 +29,39 @@ function load(): LibraryState {
   }
 }
 
+function save(state: LibraryState) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
+    localStorage.setItem(VIEW_KEY, state.view);
+  } catch {
+    // Без хранилища альбом работает, только не помнит фильтры
+  }
+}
+
+/** Открытые сейчас альбомы: поиск из шапки на странице альбома меняет его сразу. */
+const searchListeners = new Set<(query: string) => void>();
+
+/**
+ * Поиск из шапки: запрос ложится в поле поиска альбома (sessionStorage), остальные фильтры
+ * сбрасываются. Альбом, который уже открыт, получает запрос сразу; новый прочитает его при открытии.
+ */
+export function searchInLibrary(query: string) {
+  save(withSearch(load(), query));
+  for (const listener of searchListeners) listener(query);
+}
+
 export function useLibraryState() {
   const [state, setState] = useState<LibraryState>(load);
 
+  useEffect(() => save(state), [state]);
+
   useEffect(() => {
-    try {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
-      localStorage.setItem(VIEW_KEY, state.view);
-    } catch {
-      // Без хранилища альбом работает, только не помнит фильтры
-    }
-  }, [state]);
+    const listener = (query: string) => setState((previous) => withSearch(previous, query));
+    searchListeners.add(listener);
+    return () => {
+      searchListeners.delete(listener);
+    };
+  }, []);
 
   return {
     state,

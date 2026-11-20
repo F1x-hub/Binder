@@ -1,12 +1,13 @@
 import type { User } from 'firebase/auth/web-extension';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import { Link, useLocation } from 'wouter';
+import { HeaderSearch } from '@/app/HeaderSearch';
 import { useAuth } from '@/lib/auth-state';
 import { leaveBinder } from '@/settings/leave';
 import { Avatar } from '@/ui/Avatar';
 import { Brand } from '@/ui/Brand';
 import { cx } from '@/ui/cx';
-import { ChevronDownIcon, SearchIcon, SignOutIcon, SlidersIcon, UserIcon } from '@/ui/Icons';
+import { ChevronDownIcon, SignOutIcon, SlidersIcon, UserIcon } from '@/ui/Icons';
 import { menuFocusTarget } from '@/ui/menu-keys';
 import styles from './PageHeader.module.css';
 
@@ -42,10 +43,7 @@ export function PageHeader() {
         })}
       </nav>
       <div className={styles.end}>
-        <label className={styles.search} title="Поиск заработает вместе с альбомом">
-          <SearchIcon size={16} stroke={2} />
-          <input aria-label="Поиск" placeholder="Поиск карточек и друзей" disabled />
-        </label>
+        <HeaderSearch />
         {auth.status === 'signed-in' && <AccountMenu user={auth.user} location={location} />}
         {/* Пока сессия восстанавливается, место под меню занято: поиск не прыгает */}
         {auth.status === 'loading' && <span className={styles.menuPlaceholder} aria-hidden="true" />}

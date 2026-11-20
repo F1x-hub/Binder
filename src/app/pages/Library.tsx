@@ -7,6 +7,7 @@ import { CARD_FORMS, DECK_FORMS, SET_FORMS, countLabel, formatCardPrice, formatU
 import { filterCards, filterChoices, sortCards, type LibraryView } from '@/lib/library-filters';
 import { useCardFacets } from '@/lib/useCardFacets';
 import { collectionTotals, useCardViews } from '@/lib/useCardViews';
+import { useDecks } from '@/lib/useDecks';
 import { Button } from '@/ui/Button';
 import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/EmptyState';
@@ -40,13 +41,18 @@ export function Library() {
   const { state, setView, setFilters, resetFilters, setSort, setSpread } = useLibraryState();
   const { view, filters, sort } = state;
 
+  const uid = auth.status === 'signed-in' ? auth.user.uid : null;
+  const decks = useDecks(uid);
+
   const totals = collectionTotals(views ?? cards.map((card) => ({ ...card, price: null })));
   const meta = [
     countLabel(totals.copies, CARD_FORMS),
     countLabel(totals.sets, SET_FORMS),
-    countLabel(0, DECK_FORMS),
-  ].join(' · ');
-  const uid = auth.status === 'signed-in' ? auth.user.uid : null;
+    // Пока колоды не пришли, их число не показываем, чтобы не мелькал «0 колод»
+    decks.status === 'ready' ? countLabel(decks.decks.length, DECK_FORMS) : null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' · ');
 
   const all = useMemo(() => views ?? [], [views]);
   const choices = useMemo(() => filterChoices(all, facets), [all, facets]);

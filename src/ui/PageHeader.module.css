@@ -47,37 +47,7 @@
   gap: 10px;
 }
 
-.search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 280px;
-  max-width: 100%;
-  height: 44px;
-  padding: 0 14px;
-  border-radius: var(--radius-control);
-  background: var(--header-field);
-  color: var(--on-header-field);
-  border: var(--border) solid var(--header-line);
-}
-
-.search:focus-within {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.search input {
-  flex-grow: 1;
-  min-width: 0;
-  height: 100%;
-  padding: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--on-header-field);
-  font-family: var(--font-body);
-  font-size: 14px;
-}
+/* Поле поиска и подсказки — src/app/HeaderSearch.module.css */
 
 /* ---------- Меню аккаунта ---------- */
 
@@ -101,7 +71,7 @@
   background: color-mix(in srgb, var(--on-header) 14%, transparent);
 }
 
-/* Аватар без фото — значок на цвете поля шапки, как поле поиска рядом */
+/* Аватар без фото — значок на цвете поля шапки, как поле поиска рядом (HeaderSearch) */
 .trigger > span:first-child {
   background: var(--header-field);
   color: var(--on-header-field);

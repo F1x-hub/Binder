@@ -138,9 +138,10 @@ export function mergePrice(tcgdex: CardPrice | null, dollars: number | null): Ca
  * Имена и картинки берутся из сетов TCGdex (один запрос на сет, с кэшем), цены — из общего
  * кэша клуба, обложки карт без скана — из этого браузера. Сначала карты показываются без цен,
  * потом с ценами и сверенными сканами Limitless. У похожих карт и карт вне базы цены нет:
- * она была бы чужой.
+ * она была бы чужой. prices: false — без цен (поиску в шапке они не нужны, а второй
+ * одновременный запрос цен удвоил бы чтения и записи общего кэша).
  */
-export function useCardViews(cards: OwnedCard[], ready: boolean): CardView[] | null {
+export function useCardViews(cards: OwnedCard[], ready: boolean, { prices: withPrices = true } = {}): CardView[] | null {
   const [views, setViews] = useState<CardView[] | null>(null);
   const key = cards
     .map((card) => `${card.docId}:${card.count}`)
@@ -162,9 +163,9 @@ export function useCardViews(cards: OwnedCard[], ready: boolean): CardView[] | n
       const base = cards.map((card) => viewOf(card, sets.get(setKey(card)) ?? null, thumbs.get(card.docId) ?? null));
       if (active) setViews(base);
 
-      const priced = base.filter((view) => view.cardId && view.catalog && !view.approximate);
+      const priced = withPrices ? base.filter((view) => view.cardId && view.catalog && !view.approximate) : [];
       const custom = base.filter((view) => view.printed && view.lang === 'ja' && view.printed.setCode);
-      const japanese = japaneseRefs(base);
+      const japanese = withPrices ? japaneseRefs(base) : [];
       // У японских карт TCGdex имя японское: английское берём из перевода Limitless, по 4 запроса за раз
       const unnamed = base.filter((view) => view.catalog === 'ja' && view.localId && !view.englishName);
       if (priced.length === 0 && custom.length === 0 && japanese.length === 0 && unnamed.length === 0) return;
@@ -201,7 +202,7 @@ export function useCardViews(cards: OwnedCard[], ready: boolean): CardView[] | n
       active = false;
     };
     // cards меняются вместе с key: пересчитываем только при изменении состава альбома
-  }, [key, ready]);
+  }, [key, ready, withPrices]);
 
   return views;
 }

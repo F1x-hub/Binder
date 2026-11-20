@@ -52,8 +52,8 @@ export function FilterBar({ filters, choices, sort, facetsLoading, onChange, onR
           <SearchIcon size={16} stroke={2} />
           <input
             type="search"
-            aria-label="Поиск по имени или номеру"
-            placeholder="Имя или номер"
+            aria-label="Поиск по имени, номеру или сету"
+            placeholder="Имя, номер или сет"
             value={filters.query}
             maxLength={80}
             onChange={(event) => onChange({ query: event.target.value })}

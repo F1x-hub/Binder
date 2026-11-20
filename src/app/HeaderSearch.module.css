@@ -1,0 +1,254 @@
+/* ---------- Поле в шапке ---------- */
+
+.field {
+  anchor-name: --binder-search;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 280px;
+  max-width: 100%;
+  height: 44px;
+  padding: 0 10px 0 14px;
+  box-sizing: border-box;
+  border-radius: var(--radius-control);
+  background: var(--header-field);
+  color: var(--on-header-field);
+  border: var(--border) solid var(--header-line);
+  cursor: text;
+}
+
+.field:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.fieldDisabled {
+  cursor: not-allowed;
+}
+
+.field input {
+  flex-grow: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--on-header-field);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+/* Значок горячей клавиши: та же гарнитура, что у текста, не моноширинная */
+.key {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: max(0px, calc(var(--radius-control) - 5px));
+  border: var(--border) solid color-mix(in srgb, var(--on-header-field) 35%, transparent);
+  color: var(--on-header-field);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Подсказки ---------- */
+
+/* Верхний слой (popover), под полем и по его правому краю; у края окна переворачивается */
+.popover {
+  /* Список — потомок шапки по DOM и унаследовал бы её цвета и кольцо фокуса */
+  --focus-ring: var(--accent);
+  position-anchor: --binder-search;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+  inset: auto;
+  margin: 6px 0;
+  box-sizing: border-box;
+  width: 400px;
+  min-width: anchor-size(width);
+  max-width: calc(100vw - 16px);
+  max-height: min(560px, calc(100dvh - 96px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-family: var(--font-body);
+  text-align: left;
+}
+
+/* Узкое окно: список во всю ширину под шапкой */
+@media (max-width: 560px) {
+  .popover {
+    position-area: block-end span-all;
+    position-try-fallbacks: none;
+    justify-self: stretch;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    margin: 6px 8px;
+  }
+}
+
+.listbox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+}
+
+.group + .group {
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: var(--border) solid var(--line);
+}
+
+.groupTitle {
+  padding: 8px 10px 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: max(0px, calc(var(--radius-control) - 4px));
+  color: var(--text);
+  cursor: pointer;
+}
+
+.option[aria-selected='true'] {
+  background: var(--surface-2);
+}
+
+/* Выбор стрелками: кольцо, как у фокуса, — фокус-то остаётся в поле */
+.keyboard .option[aria-selected='true'] {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.thumb {
+  flex-shrink: 0;
+  width: 32px;
+}
+
+.allIcon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--muted);
+}
+
+.text {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name,
+.meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.count {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  padding: 10px 10px 6px;
+}
+
+.emptyTitle {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.note {
+  margin: 0;
+  padding: 6px 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.empty .note {
+  padding: 0;
+}
+
+.hint {
+  margin: 4px 0 0;
+  padding: 8px 10px 4px;
+  border-top: var(--border) solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .popover {
+    opacity: 0;
+    translate: 0 -4px;
+    transition: opacity, translate, display, overlay;
+    transition-duration: 0.12s;
+    transition-behavior: allow-discrete;
+  }
+
+  .popover:popover-open {
+    opacity: 1;
+    translate: 0 0;
+    transition-duration: 0.1s;
+
+    @starting-style {
+      opacity: 0;
+      translate: 0 -4px;
+    }
+  }
+}

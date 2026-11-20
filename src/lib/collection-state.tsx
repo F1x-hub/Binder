@@ -10,12 +10,16 @@ export type CollectionState =
 
 const CollectionContext = createContext<CollectionState>({ status: 'loading' });
 
-/** Альбом участника: живая подписка на members/{uid}/cards. byId — по ID документа. */
-export function CollectionProvider({ uid, children }: { uid: string; children: ReactNode }) {
+/**
+ * Альбом участника: живая подписка на members/{uid}/cards. byId — по ID документа.
+ * uid null — подписки нет, альбом «загружается» (так поиск в шапке ждёт первого фокуса).
+ */
+export function CollectionProvider({ uid, children }: { uid: string | null; children: ReactNode }) {
   const [state, setState] = useState<CollectionState>({ status: 'loading' });
 
   useEffect(() => {
     setState({ status: 'loading' });
+    if (!uid) return;
     return onSnapshot(
       cardsOf(binderDb(), uid),
       (snapshot) => {
