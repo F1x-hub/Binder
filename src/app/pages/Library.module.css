@@ -58,6 +58,32 @@
   position: relative;
 }
 
+/* Карта открывает свою страницу; при наведении чуть приподнимается */
+.cardLink {
+  display: block;
+  border-radius: var(--radius-card);
+  transition: transform 0.15s ease;
+}
+
+.cardLink:hover {
+  transform: translateY(-3px);
+}
+
+.cardLink:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardLink {
+    transition: none;
+  }
+
+  .cardLink:hover {
+    transform: none;
+  }
+}
+
 .count {
   position: absolute;
   right: 6px;
@@ -69,6 +95,57 @@
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+.euro {
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* «−» в углу карты: видна при наведении и фокусе, на сенсорных экранах — всегда */
+.remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.card:hover .remove,
+.remove:focus-visible,
+.confirming {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .remove {
+    opacity: 1;
+  }
+}
+
+.confirming {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.remove:disabled {
+  opacity: 0.6;
 }
 
 .caption {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatCardPrice, rarityLabel } from '@/lib/format';
-import { priceFromCard, utcDay } from '@/lib/prices';
+import { priceDocId, priceFromCard, priceKey, utcDay } from '@/lib/prices';
 import { cardImage, isPocketCard, setIdOf } from '@/lib/tcgdex';
 import { collectionTotals, newestFirst } from '@/lib/useCardViews';
 import { variantFor } from '@/scan/useScan';
@@ -47,11 +47,33 @@ describe('мелочи вокруг цен', () => {
 
   it('итоги альбома считают копии, сеты и стоимость по картам с ценой', () => {
     const totals = collectionTotals([
-      { setId: 'sv03', count: 2, price: { u: 4.88, e: null } },
-      { setId: 'sv03', count: 1, price: null },
-      { setId: 'base1', count: 1, price: { u: 1284, e: null } },
+      { catalog: 'en', setId: 'sv03', lang: 'en', count: 2, price: { u: 4.88, e: null } },
+      { catalog: 'en', setId: 'sv03', lang: 'fr', count: 1, price: null },
+      { catalog: 'en', setId: 'base1', lang: 'en', count: 1, price: { u: 1284, e: null } },
     ]);
-    expect(totals).toEqual({ copies: 4, sets: 2, value: 1293.76 });
+    expect(totals).toEqual({ copies: 4, sets: 2, value: 1293.76, euro: 0 });
+  });
+
+  it('у японских карт только евро: они считаются отдельно, а их сеты — свои', () => {
+    const totals = collectionTotals([
+      { catalog: 'en', setId: 'sv03', lang: 'en', count: 1, price: { u: 2, e: 1.5 } },
+      { catalog: 'ja', setId: 'SV2a', lang: 'ja', count: 3, price: { u: null, e: 0.2 } },
+      { catalog: null, setId: 'MBG', lang: 'ja', count: 1, price: null },
+    ]);
+    expect(totals).toEqual({ copies: 5, sets: 3, value: 2, euro: 0.6 });
+  });
+
+  it('у японского каталога свой документ цен, а ключи карт не пересекаются с тайваньскими', () => {
+    expect(priceDocId('en', 'sv03')).toBe('sv03');
+    expect(priceDocId('ja', 'SV2a')).toBe('ja_SV2a');
+    expect(priceDocId('zh-tw', 'SV2a')).toMatch(/^[A-Za-z0-9._-]{1,40}$/);
+    expect(priceKey('ja', 'SV2a-094')).not.toBe(priceKey('zh-tw', 'SV2a-094'));
+    expect(priceKey('en', 'sv03-125')).toBe('sv03-125');
+  });
+
+  it('у японской карты TCGplayer пуст, цена берётся с Cardmarket', () => {
+    const pricing = { cardmarket: { trend: 0.2, avg: 0.49 }, tcgplayer: undefined };
+    expect(priceFromCard({ pricing, variants: { normal: true, reverse: true } })).toEqual({ u: null, e: 0.2 });
   });
 
   it('новые карты сверху, а только что добавленные — самыми первыми', () => {

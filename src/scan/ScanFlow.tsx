@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import type { OwnedCard } from '@/lib/collection';
 import { CARD_FORMS, SIMILAR_FORMS, countLabel, formatCardPrice, rarityLabel } from '@/lib/format';
+import { LANGUAGE_LABELS, catalogFor, htmlLang } from '@/lib/languages';
+import { candidateLimitless } from '@/lib/limitless';
 import type { Candidate } from '@/lib/matching';
+import { displayNames } from '@/lib/names';
 import { imageFiles } from '@/lib/photo';
 import { DeepseekKeyField } from '@/scan/DeepseekKeyField';
 import { useScan, type Photo, type ScanItem } from '@/scan/useScan';
@@ -83,19 +86,27 @@ export function ScanFlow({ uid, owned, initialFiles, onBack, onOpenAlbum }: Prop
         <Button className={styles.inline} onClick={pick}>
           Выбрать фото
         </Button>
-        <p className={styles.muted}>Фото нужно только для распознавания и нигде не сохраняется.</p>
+        <p className={styles.muted}>
+          Фото нужно для распознавания. Если у карточки нет скана в базе, её вырезка из фото станет обложкой и
+          останется только в этом браузере.
+        </p>
       </div>
     );
   } else if (scan.key) {
     body = (
       <>
-        {featured && <Featured item={featured} />}
+        {featured && <Featured item={featured} hasPriceKey={scan.hasPriceKey} />}
         {scan.ready.length > 1 && <ReadyStrip items={scan.ready} onRemove={scan.skip} />}
         {featured && current && <div className={styles.divider} />}
         {scan.pending ? (
-          <Choice item={scan.pending} afterFeatured={Boolean(featured)} onChoose={scan.choose} />
+          <Choice
+            item={scan.pending}
+            afterFeatured={Boolean(featured)}
+            onChoose={scan.choose}
+            onAsPrinted={scan.addAsPrinted}
+          />
         ) : scan.missing ? (
-          <Missing item={scan.missing} />
+          <Missing item={scan.missing} onAdd={scan.addAsPrinted} onRetry={scan.retry} />
         ) : null}
         <Progress photos={scan.photos} busy={scan.busy} />
         {!scan.busy && (
@@ -177,74 +188,148 @@ export function ScanFlow({ uid, owned, initialFiles, onBack, onOpenAlbum }: Prop
   );
 }
 
-function cardMeta(candidate: Candidate): string {
-  const number = candidate.printedTotal ? `${candidate.localId}/${candidate.printedTotal}` : candidate.localId;
-  return `${candidate.setName} · ${number}`;
+function numberOf(localId: string, total: number | string | null): string {
+  return total ? `${localId}/${total}` : localId;
 }
 
-function Featured({ item }: { item: ScanItem }) {
-  const pick = item.pick!;
-  const detail = item.details[pick.cardId];
-  const extra = [rarityLabel(detail?.rarity), item.detected.holo ? 'голо' : null].filter(Boolean).join(' · ');
+function cardMeta(candidate: Candidate): string {
+  const meta = `${candidate.setName} · ${numberOf(candidate.localId, candidate.printedTotal)}`;
+  return candidate.source === 'limitless' ? `${meta} · из Limitless TCG` : meta;
+}
+
+/** Что показать о готовой карте: данные из базы или то, что напечатано, если её добавляют как есть. */
+function describeItem(item: ScanItem) {
+  const { detected, pick } = item;
+  // Английское имя — главным, напечатанное (японское, китайское) — подписью под ним
+  const { primary: name, secondary: original } = displayNames(
+    pick ? pick.name : detected.name,
+    pick?.englishName ?? detected.englishName,
+  );
+  if (pick) {
+    return {
+      name,
+      original,
+      image: pick.image,
+      limitless: candidateLimitless(pick),
+      number: numberOf(pick.localId, pick.printedTotal),
+      meta: cardMeta(pick),
+    };
+  }
+  const number = numberOf(detected.number, detected.total);
+  return {
+    name,
+    original,
+    image: undefined,
+    limitless: null,
+    number,
+    meta: [detected.setCode, number].filter(Boolean).join(' · '),
+  };
+}
+
+/** Почему у карты такая цена или почему её нет. */
+function priceNote(item: ScanItem, hasPriceKey: boolean): string {
+  if (!item.pick) return 'Цены нет: карты нет в базе';
+  if (item.pick.approximate) return 'Цены нет: это похожая карта, а не твоя';
+  if (!item.price || (item.price.u === null && item.price.e === null)) {
+    // Доллары японских карт берутся из JustTCG, а ключ вводит сам участник
+    return item.pick.lang === 'ja' && !hasPriceKey ? 'Цена в долларах — с ключом JustTCG в настройках' : 'цены пока нет';
+  }
+  if (item.pick.lang === 'en' && item.detected.language !== 'en') return 'без грейда, цена английской';
+  return 'без грейда';
+}
+
+export function Featured({ item, hasPriceKey = false }: { item: ScanItem; hasPriceKey?: boolean }) {
+  const view = describeItem(item);
+  const detail = item.pick ? item.details[item.pick.cardId] : undefined;
+  const extra = [LANGUAGE_LABELS[item.detected.language].card, rarityLabel(detail?.rarity), item.detected.holo ? 'голо' : null]
+    .filter(Boolean)
+    .join(' · ');
+  // Уверенность — меньшее из того, как уверена модель в прочитанном и как хорошо карта сошлась с базой
+  const certainty = Math.min(item.detected.confidence, item.pick?.score ?? 1);
+  const status = item.manual
+    ? item.pick
+      ? 'Выбрано вручную'
+      : 'Добавим как есть'
+    : `Распознано, ${Math.round(certainty * 100)}%`;
+  const priced = item.pick !== null && !item.pick.approximate && item.price !== null;
   return (
     <section className={styles.featured}>
-      <CardImage image={pick.image} name={pick.name} className={styles.featuredImage} />
+      <CardImage
+        image={view.image}
+        limitless={view.limitless}
+        thumb={item.thumb}
+        name={view.name}
+        number={view.number}
+        className={styles.featuredImage}
+      />
       <div className={styles.featuredText}>
         <div className={styles.recognized}>
           <CheckIcon size={14} stroke={2.4} />
-          {item.manual ? 'Выбрано вручную' : `Распознано, ${Math.round(item.detected.confidence * 100)}%`}
+          {status}
         </div>
-        <div className={styles.cardName}>{pick.name}</div>
-        <div className={styles.muted}>{cardMeta(pick)}</div>
-        {extra && <div className={styles.muted}>{extra}</div>}
+        <div className={styles.cardName}>{view.name}</div>
+        {view.original && (
+          <div className={styles.muted} lang={htmlLang(item.detected.language)}>
+            {view.original}
+          </div>
+        )}
+        <div className={styles.muted}>{view.meta}</div>
+        <div className={styles.muted}>{extra}</div>
         <div className={styles.priceRow}>
-          <span className={styles.price}>{formatCardPrice(item.price)}</span>
-          {item.price && <span className={styles.muted}>без грейда</span>}
+          {priced && <span className={styles.price}>{formatCardPrice(item.price)}</span>}
+          <span className={styles.muted}>{priceNote(item, hasPriceKey)}</span>
         </div>
       </div>
     </section>
   );
 }
 
-function ReadyStrip({ items, onRemove }: { items: ScanItem[]; onRemove: (id: string) => void }) {
+export function ReadyStrip({ items, onRemove }: { items: ScanItem[]; onRemove: (id: string) => void }) {
   return (
     <section className={styles.strip} aria-label="Готово к добавлению">
       <span className={styles.muted}>Готово к добавлению</span>
       <div className={styles.stripRow}>
-        {items.map((item) => (
-          <div key={item.id} className={styles.stripCard}>
-            <CardImage image={item.pick!.image} name={item.pick!.name} />
-            <button
-              type="button"
-              className={styles.remove}
-              aria-label={`Убрать ${item.pick!.name}`}
-              onClick={() => onRemove(item.id)}
-            >
-              <CloseIcon size={12} stroke={2.4} />
-            </button>
-          </div>
-        ))}
+        {items.map((item) => {
+          const view = describeItem(item);
+          return (
+            <div key={item.id} className={styles.stripCard}>
+              <CardImage image={view.image} limitless={view.limitless} thumb={item.thumb} name={view.name} />
+              <button
+                type="button"
+                className={styles.remove}
+                aria-label={`Убрать ${view.name}`}
+                onClick={() => onRemove(item.id)}
+              >
+                <CloseIcon size={12} stroke={2.4} />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
 }
 
 function readAs(item: ScanItem): string {
-  const { name, number, total } = item.detected;
-  return `«${name} ${number}${total ? `/${total}` : ''}»`;
+  const { name, setCode, number, total } = item.detected;
+  return `«${name}${setCode ? ` · ${setCode}` : ''} ${numberOf(number, total)}»`;
 }
 
-function Choice({
+export function Choice({
   item,
   afterFeatured,
   onChoose,
+  onAsPrinted,
 }: {
   item: ScanItem;
   afterFeatured: boolean;
   onChoose: (itemId: string, candidate: Candidate) => void;
+  onAsPrinted: (itemId: string) => void;
 }) {
-  const subtitle =
-    item.options.length > 1
+  const approximate = item.options.some((option) => option.approximate);
+  const subtitle = approximate
+    ? 'Язык карты не определён, вот похожие из английской базы'
+    : item.options.length > 1
       ? `ИИ видит ${countLabel(item.options.length, SIMILAR_FORMS)}`
       : 'Проверь, та ли это карта';
   return (
@@ -258,7 +343,13 @@ function Choice({
       <div className={styles.options}>
         {item.options.map((option) => (
           <button key={option.cardId} type="button" className={styles.option} onClick={() => onChoose(item.id, option)}>
-            <CardImage image={option.image} name={option.name} className={styles.optionImage} />
+            <CardImage
+              image={option.image}
+              limitless={candidateLimitless(option)}
+              name={option.name}
+              number={option.localId}
+              className={styles.optionImage}
+            />
             <span className={styles.optionText}>
               <span className={styles.optionName}>{option.name}</span>
               <span className={styles.small}>
@@ -268,18 +359,64 @@ function Choice({
             <span className={styles.radio} aria-hidden="true" />
           </button>
         ))}
+        <button type="button" className={cx(styles.option, styles.optionPlain)} onClick={() => onAsPrinted(item.id)}>
+          <span className={styles.optionText}>
+            <span className={styles.optionName}>Ни одна не подходит</span>
+            <span className={styles.small}>Добавить как напечатана, обложкой станет фото</span>
+          </span>
+          <span className={styles.radio} aria-hidden="true" />
+        </button>
       </div>
     </section>
   );
 }
 
-function Missing({ item }: { item: ScanItem }) {
+export function Missing({
+  item,
+  onAdd,
+  onRetry,
+}: {
+  item: ScanItem;
+  onAdd: (itemId: string) => void;
+  onRetry: (itemId: string) => void;
+}) {
+  const { detected } = item;
+  let why = 'В базе TCGdex её не нашлось: там есть не все наборы, а новым сетам нужно время.';
+  if (item.searchFailed) why = 'Проверь интернет и поищи ещё раз.';
+  else if (catalogFor(detected.language).tcgdex === null) why = 'Китайских карт для КНР и корейских в базах карт нет.';
+  else if (detected.language === 'ja') {
+    why = detected.setCode
+      ? 'Её не нашлось ни в TCGdex, ни в Limitless TCG. Проверь, что код сета и номер прочитаны верно.'
+      : 'В TCGdex её не нашлось, а без кода сета её не найти в Limitless TCG.';
+  }
   return (
-    <section className={styles.choice}>
-      <div className={styles.choiceTitle}>Не нашли в базе</div>
-      <div className={styles.small}>
-        Прочитано {readAs(item)}. Если сет совсем новый, базе нужно время. Пропусти карту или сфотографируй её ещё раз
-        крупнее.
+    <section className={styles.missing}>
+      <CardImage
+        thumb={item.thumb}
+        name={detected.name}
+        number={numberOf(detected.number, detected.total)}
+        className={styles.missingImage}
+      />
+      <div className={styles.missingText}>
+        <div className={styles.choiceTitle}>{item.searchFailed ? 'База карт не ответила' : 'Этой карты нет в базе'}</div>
+        <div className={styles.small}>
+          Прочитано {readAs(item)}. {LANGUAGE_LABELS[detected.language].card}.
+        </div>
+        <div className={styles.small}>{why}</div>
+        <div className={styles.small}>
+          Её можно добавить как есть: обложкой станет вырезка из фото, она хранится только в этом браузере. Цены у
+          такой карты не будет.
+        </div>
+        <div className={styles.actions}>
+          <Button className={styles.inline} onClick={() => onAdd(item.id)}>
+            Добавить как есть
+          </Button>
+          {item.searchFailed && (
+            <Button variant="link" onClick={() => onRetry(item.id)}>
+              Искать снова
+            </Button>
+          )}
+        </div>
       </div>
     </section>
   );

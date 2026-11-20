@@ -78,11 +78,11 @@ export const tcgdexApi = {
   set: (id: string, lang: TcgdexLanguage = 'en') => get<SetDetail>(lang, `/sets/${encodeURIComponent(id)}`),
   card: (id: string, lang: TcgdexLanguage = 'en') => get<CardDetail>(lang, `/cards/${encodeURIComponent(id)}`),
   /**
-   * Поиск по части имени и номеру. Фильтр номера у TCGdex нестрогий («003» находит «073»),
-   * поэтому точное совпадение номера проверяет вызывающий код.
+   * Поиск по части имени и точному номеру. Без «eq:» фильтр номера у TCGdex нестрогий:
+   * «003» находит «073». Ведущие нули при этом важны, поэтому номер ищется во всех записях.
    */
   search: (name: string, localId: string, lang: TcgdexLanguage = 'en') =>
-    list(lang, `name=${encodeURIComponent(name)}&localId=${encodeURIComponent(localId)}`),
+    list(lang, `name=${encodeURIComponent(name)}&localId=eq:${encodeURIComponent(localId)}`),
   /** Все печати карты с таким именем. */
   searchName: (name: string, lang: TcgdexLanguage = 'en') => list(lang, `name=${encodeURIComponent(name)}`),
 };

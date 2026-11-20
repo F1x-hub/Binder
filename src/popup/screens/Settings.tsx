@@ -6,6 +6,8 @@ import type { ThemeId } from '@/theme/themes';
 import { Avatar } from '@/ui/Avatar';
 import { Button } from '@/ui/Button';
 import { DeepseekKeyField } from '@/scan/DeepseekKeyField';
+import { JusttcgKeyField } from '@/scan/JusttcgKeyField';
+import { cx } from '@/ui/cx';
 import { PopupHeader } from '@/ui/PopupHeader';
 import { ThemePicker } from '@/ui/ThemePicker';
 import popup from '../Popup.module.css';
@@ -33,8 +35,9 @@ export function Settings({ user, member, theme, onTheme, onBack, onSignOut }: Pr
   return (
     <>
       <PopupHeader title="Настройки" onBack={onBack} />
-      <main className={popup.body}>
+      <main className={cx(popup.body, styles.scroll)}>
         <DeepseekKeyField />
+        <JusttcgKeyField />
 
         <section className={styles.section}>
           <h2 id={themeTitle} className={styles.title}>

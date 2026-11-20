@@ -33,10 +33,14 @@ export type Candidate = {
   printedTotal: number | null;
   setCode: string | null;
   releaseDate: string | null;
-  /** Каталог TCGdex, из которого карта */
+  /** Каталог TCGdex, из которого карта (у карт из Limitless — язык карты) */
   lang: TcgdexLanguage;
-  /** Не та же карта, а похожая: другой номер или английский аналог карты, которой нет в базе */
+  /** Не та же карта, а похожая: язык карты не определён, и это подсказка из английской базы */
   approximate: boolean;
+  /** Откуда карта: TCGdex или Limitless TCG (японские карты, которых нет в TCGdex) */
+  source: 'tcgdex' | 'limitless';
+  /** Английское имя японской карты из Limitless */
+  englishName?: string | null;
   score: number;
 };
 
@@ -58,13 +62,17 @@ export function localIdVariants(number: string): string[] {
   return [...new Set([trimmed, bare, bare.padStart(3, '0')])];
 }
 
-const MECHANICS = /\s+(?:ex|gx|v|vmax|vstar|v-union|break|lv\.?\s?x|prime|legend|star|δ|◇|☆)$/i;
+/**
+ * Механики на конце имени. В латинских именах перед ними пробел или дефис («Charizard ex»,
+ * «M Gengar-EX»), в японских пробела нет («リザードンex»); у «Pokédex» ничего не отрезается.
+ */
+const MECHANICS = /(?:[\s-]+|(?<=[^\s\x00-\x7F]))(?:ex|gx|v|vmax|vstar|v-union|break|lv\.?\s?x|prime|legend|star|δ|◇|☆)$/i;
 
-/** Имя для поиска: английское, без механик вроде «ex» и «VMAX» на конце. */
-export function searchName(card: Pick<DetectedCard, 'name' | 'englishName'>): string {
-  let name = (card.englishName ?? card.name).trim();
-  for (let i = 0; i < 2; i++) name = name.replace(MECHANICS, '');
-  return name.trim();
+/** Имя для поиска без механик вроде «ex» и «VMAX» на конце. Полноширинные буквы приводятся к обычным. */
+export function searchName(name: string): string {
+  let result = name.normalize('NFKC').trim();
+  for (let i = 0; i < 2; i++) result = result.replace(MECHANICS, '').trim();
+  return result;
 }
 
 /** Последнее слово имени: запасной поиск, если полное имя прочитано с ошибкой. */
@@ -78,7 +86,7 @@ function simplify(value: string): string {
     .toLowerCase()
     .normalize('NFKD')
     .replace(/\p{M}/gu, '') // убираем диакритику: «Pokémon» → «pokemon»
-    .replace(/[^a-z0-9]/g, '');
+    .replace(/[^\p{L}\p{N}]/gu, ''); // буквы любых алфавитов остаются: японские имена тоже сравниваются
 }
 
 function levenshtein(a: string, b: string): number {
@@ -103,6 +111,60 @@ export function nameSimilarity(a: string, b: string): number {
   return 1 - levenshtein(left, right) / Math.max(left.length, right.length);
 }
 
+type Script = 'latin' | 'cjk' | 'hangul' | 'thai' | 'cyrillic' | 'none';
+
+/** Письменность имени: японские имена с «ex» на конце — всё равно японские. */
+export function scriptOf(name: string): Script {
+  if (/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(name)) return 'cjk';
+  if (/\p{Script=Hangul}/u.test(name)) return 'hangul';
+  if (/\p{Script=Thai}/u.test(name)) return 'thai';
+  if (/\p{Script=Cyrillic}/u.test(name)) return 'cyrillic';
+  if (/\p{Script=Latin}/u.test(name)) return 'latin';
+  return 'none';
+}
+
+/** Сам покемон или предмет: без «Mega»/«M»/«メガ» в начале и без механик в конце. */
+export function coreName(name: string): string {
+  return searchName(name)
+    .replace(/^(?:mega|m)\s+/i, '')
+    .replace(/^メガ/, '')
+    .trim();
+}
+
+/**
+ * Совпадение имён: меньшее из похожести целиком и похожести без «Mega» и «ex».
+ * Иначе «Mega Gengar ex» и «Mega Venusaur ex» похожи на 0.71 только за счёт общих частей.
+ */
+export function namesMatch(a: string, b: string): number {
+  return Math.min(nameSimilarity(a, b), nameSimilarity(coreName(a), coreName(b)));
+}
+
+/** Карта из базы для сверки имени: имя, язык каталога и английское имя, если база его знает. */
+export type NamedCard = { name: string; lang: string; englishName?: string | null };
+
+/**
+ * Насколько имя карты из базы совпадает с прочитанным; null — сравнить нечего.
+ * Напечатанное имя надёжнее английского: если карта и база на одном языке, решает оно,
+ * и японская «メガゲンガーex» не спутается с «メガフシギバナex», как бы ни были похожи английские имена.
+ * Иначе (французская карта и английская база, японское имя прочитано латиницей) сравниваются английские имена.
+ */
+export function nameVerdict(detected: Pick<DetectedCard, 'name' | 'englishName' | 'language'>, card: NamedCard): number | null {
+  if (detected.language === card.lang && scriptOf(detected.name) === scriptOf(card.name)) {
+    return namesMatch(detected.name, card.name);
+  }
+  const ours = detected.englishName ?? (scriptOf(detected.name) === 'latin' ? detected.name : null);
+  const theirs = card.englishName ?? (scriptOf(card.name) === 'latin' ? card.name : null);
+  return ours && theirs ? namesMatch(ours, theirs) : null;
+}
+
+/** Похожесть имени для оценки: если сравнить нечего, имя ничего не добавляет. */
+export function nameScore(detected: Pick<DetectedCard, 'name' | 'englishName' | 'language'>, card: NamedCard): number {
+  return nameVerdict(detected, card) ?? 0;
+}
+
+/** Ниже этого имя явно другое: карта с тем же номером, но чужая. */
+export const NAME_FLOOR = 0.5;
+
 /** Совпадает ли номер карты с прочитанным, без учёта ведущих нулей. */
 export function sameNumber(a: string, b: string): boolean {
   return normalizeNumber(a) === normalizeNumber(b);
@@ -113,8 +175,7 @@ export function sameNumber(a: string, b: string): boolean {
  * На японских картах напечатан сам ID сета («M2a»), на английских — сокращение («OBF»).
  */
 export function scoreCandidate(detected: DetectedCard, candidate: Omit<Candidate, 'score'>): number {
-  const wanted = detected.englishName ?? detected.name;
-  let score = 0.6 * Math.max(nameSimilarity(wanted, candidate.name), nameSimilarity(detected.name, candidate.name));
+  let score = 0.6 * nameScore(detected, candidate);
   if (detected.total && candidate.printedTotal !== null && normalizeNumber(detected.total) === String(candidate.printedTotal)) {
     score += 0.3;
   }

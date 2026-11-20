@@ -39,7 +39,10 @@ export function countLabel(n: number, forms: WordForms): string {
   return `${formatInteger(n)}${NBSP}${pluralWord(n, forms)}`;
 }
 
-/** Цена как в макетах: «$1 284» для сумм, «$24,80» для отдельных карточек. */
+/**
+ * Цена в долларах. Суммы коллекции и цены карт — с центами («$5,81», «$1 284,50»): владелец
+ * попросил точные суммы вместо округлённых из макетов. Без центов («$1 284») — где точность не нужна.
+ */
 export function formatUsd(value: number, cents = false): string {
   return `$${(cents ? withCents : wholeNumber).format(value)}`;
 }

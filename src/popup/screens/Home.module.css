@@ -34,6 +34,14 @@
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-card);
+}
+
+.recentCard:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .recentPrice {

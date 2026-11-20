@@ -20,7 +20,16 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { addToCollection, type OwnedCard } from '@/lib/collection';
+import {
+  addOne,
+  addToCollection,
+  friendsWithCard,
+  ownedFromDoc,
+  removeOne,
+  setCondition,
+  type OwnedCard,
+} from '@/lib/collection';
+import { loadJapanesePrices } from '@/lib/jp-prices';
 import { STARTING_INVITES, createInvite, joinWithInvite, myInvites } from '@/lib/membership';
 
 const CODE = 'AB3D-7K2Q';
@@ -338,6 +347,9 @@ function cardData(overrides: Record<string, unknown> = {}) {
   return { setId: 'sv03', count: 1, variant: 'holo', addedAt: serverTimestamp(), updatedAt: serverTimestamp(), ...overrides };
 }
 
+/** То, что напечатано на карте вне базы: японская карта из стартового набора. */
+const PRINTED = { name: 'メガゲンガーex', englishName: 'Mega Gengar ex', number: '003', total: '021', setCode: 'mBG' };
+
 describe('альбом участника', () => {
   it('участник добавляет карты настоящей функцией приложения', async () => {
     await seedMember('alice');
@@ -346,25 +358,107 @@ describe('альбом участника', () => {
         as('alice'),
         'alice',
         [
-          { cardId: 'sv03-125', setId: 'sv03', variant: 'holo' },
-          { cardId: 'sv03-125', setId: 'sv03', variant: 'holo' },
-          { cardId: 'sv03.5-006', setId: 'sv03.5' },
+          { docId: 'sv03-125', setId: 'sv03', lang: 'en', variant: 'holo' },
+          { docId: 'sv03-125', setId: 'sv03', lang: 'en', variant: 'holo' },
+          { docId: 'sv03.5-006', setId: 'sv03.5', lang: 'en' },
+          { docId: 'SV2a-094_ja', setId: 'SV2a', lang: 'ja', variant: 'normal' },
+          { docId: 'x-ja-MBG-3', setId: 'MBG', lang: 'ja', variant: 'holo', printed: PRINTED },
         ],
         new Map(),
       ),
     );
     expect(await readAsAdmin('members/alice/cards/sv03-125')).toMatchObject({ setId: 'sv03', count: 2, variant: 'holo' });
     expect(await readAsAdmin('members/alice/cards/sv03.5-006')).toMatchObject({ setId: 'sv03.5', count: 1 });
+    expect(await readAsAdmin('members/alice/cards/SV2a-094_ja')).toMatchObject({ setId: 'SV2a', lang: 'ja' });
+    expect(await readAsAdmin('members/alice/cards/x-ja-MBG-3')).toMatchObject({ lang: 'ja', printed: PRINTED });
   });
 
   it('повторное добавление увеличивает счётчик', async () => {
     await seedMember('alice');
     await seed('members/alice/cards/sv03-125', { setId: 'sv03', count: 1, addedAt: Timestamp.now(), updatedAt: Timestamp.now() });
     const owned = new Map<string, OwnedCard>([
-      ['sv03-125', { cardId: 'sv03-125', setId: 'sv03', count: 1, addedAt: null, updatedAt: null }],
+      ['sv03-125', ownedFromDoc('sv03-125', { setId: 'sv03', count: 1 })],
     ]);
-    await assertSucceeds(addToCollection(as('alice'), 'alice', [{ cardId: 'sv03-125', setId: 'sv03' }], owned));
+    await assertSucceeds(addToCollection(as('alice'), 'alice', [{ docId: 'sv03-125', setId: 'sv03', lang: 'en' }], owned));
     expect(await readAsAdmin('members/alice/cards/sv03-125')).toMatchObject({ count: 2 });
+  });
+
+  it('хозяин убирает копию, а с последней и карту, настоящей функцией приложения', async () => {
+    await seedMember('alice');
+    await seed('members/alice/cards/sv03-125', { setId: 'sv03', count: 2, addedAt: Timestamp.now(), updatedAt: Timestamp.now() });
+    expect(await removeOne(as('alice'), 'alice', { docId: 'sv03-125', count: 2 })).toBe('decremented');
+    expect(await readAsAdmin('members/alice/cards/sv03-125')).toMatchObject({ count: 1 });
+    expect(await removeOne(as('alice'), 'alice', { docId: 'sv03-125', count: 1 })).toBe('deleted');
+    expect(await readAsAdmin('members/alice/cards/sv03-125')).toBeUndefined();
+  });
+
+  it('язык карты — только из списка, напечатанное — по форме', async () => {
+    await seedMember('alice');
+    const card = (id: string) => doc(as('alice'), `members/alice/cards/${id}`);
+    await assertSucceeds(setDoc(card('SV2a-094_ja'), cardData({ setId: 'SV2a', lang: 'ja' })));
+    await assertSucceeds(setDoc(card('x-ja-MBG-3'), cardData({ setId: 'MBG', lang: 'ja', printed: PRINTED })));
+    await assertSucceeds(
+      setDoc(card('x-ko-1'), cardData({ setId: 'NOSET', lang: 'ko', printed: { ...PRINTED, englishName: null, total: null, setCode: null } })),
+    );
+    await assertFails(setDoc(card('sv03-125_xx'), cardData({ lang: 'klingon' })));
+    await assertFails(setDoc(card('sv03-125_ja'), cardData({ lang: 7 })));
+    await assertFails(setDoc(card('x-ja-1'), cardData({ printed: 'メガゲンガーex' })));
+    await assertFails(setDoc(card('x-ja-2'), cardData({ printed: { ...PRINTED, price: 100 } })));
+    const { setCode: _, ...withoutSetCode } = PRINTED;
+    await assertFails(setDoc(card('x-ja-3'), cardData({ printed: withoutSetCode })));
+    await assertFails(setDoc(card('x-ja-4'), cardData({ printed: { ...PRINTED, name: '' } })));
+    await assertFails(setDoc(card('x-ja-5'), cardData({ printed: { ...PRINTED, name: 'x'.repeat(81) } })));
+    await assertFails(setDoc(card('x-ja-6'), cardData({ printed: { ...PRINTED, number: 3 } })));
+    await assertFails(setDoc(card('x-ja-7'), cardData({ printed: { ...PRINTED, setCode: 'y'.repeat(17) } })));
+  });
+
+  it('страница карточки: копия, состояние и друзья с этой картой — настоящими функциями приложения', async () => {
+    await seedMember('alice');
+    await seedMember('bob', { displayName: 'Боб' });
+    await seedMember('carol');
+    const card = { setId: 'sv03', count: 1, addedAt: Timestamp.now(), updatedAt: Timestamp.now() };
+    await seed('members/alice/cards/sv03-125', card);
+    await seed('members/bob/cards/sv03-125', { ...card, count: 3 });
+
+    await assertSucceeds(addOne(as('alice'), 'alice', 'sv03-125'));
+    expect(await readAsAdmin('members/alice/cards/sv03-125')).toMatchObject({ count: 2 });
+    await assertSucceeds(setCondition(as('alice'), 'alice', 'sv03-125', 'LP'));
+    expect(await readAsAdmin('members/alice/cards/sv03-125')).toMatchObject({ condition: 'LP' });
+    // Near Mint — без поля
+    await assertSucceeds(setCondition(as('alice'), 'alice', 'sv03-125', 'NM'));
+    expect(await readAsAdmin('members/alice/cards/sv03-125')).not.toHaveProperty('condition');
+
+    expect(await friendsWithCard(as('alice'), 'alice', 'sv03-125')).toEqual([
+      { uid: 'bob', name: 'Боб', photoURL: null, count: 3 },
+    ]);
+  });
+
+  it('состояние — только из шкалы, и только у своей карты', async () => {
+    await seedMember('alice');
+    await seedMember('bob');
+    await seed('members/alice/cards/sv03-125', { setId: 'sv03', count: 1, addedAt: Timestamp.now(), updatedAt: Timestamp.now() });
+    const mine = doc(as('alice'), 'members/alice/cards/sv03-125');
+    await assertFails(updateDoc(mine, { condition: 'Mint', updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(mine, { condition: 'DMG', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(as('bob'), 'members/alice/cards/sv03-125'), { condition: 'NM', updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(as('alice'), 'members/alice/cards/sv03-001'), cardData({ condition: 'HP' })));
+    await assertFails(setDoc(doc(as('alice'), 'members/alice/cards/sv03-002'), cardData({ condition: 'poor' })));
+  });
+
+  it('язык и напечатанное после добавления не меняются', async () => {
+    await seedMember('alice');
+    await seed('members/alice/cards/x-ja-MBG-3', {
+      setId: 'MBG',
+      count: 1,
+      lang: 'ja',
+      printed: PRINTED,
+      addedAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+    const card = doc(as('alice'), 'members/alice/cards/x-ja-MBG-3');
+    await assertFails(updateDoc(card, { lang: 'en', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(card, { 'printed.name': 'Pikachu', updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(card, { count: 2, updatedAt: serverTimestamp() }));
   });
 
   it('альбомы видны участникам клуба, но не посторонним', async () => {
@@ -428,6 +522,10 @@ describe('общий кэш цен', () => {
     );
     await assertSucceeds(getDoc(doc(as('alice'), 'prices/sv03')));
     await assertSucceeds(getDoc(doc(as('alice'), 'prices/sv03/months/2026-11')));
+    // У японского каталога свой документ: ID сета с языком каталога
+    await assertSucceeds(
+      setDoc(doc(as('alice'), 'prices/ja_SV2a'), { cards: { 'SV2a-094': { u: null, e: 0.2, d: '2026-11-20' } } }, { merge: true }),
+    );
   });
 
   it('посторонний не читает и не пишет цены', async () => {
@@ -442,6 +540,32 @@ describe('общий кэш цен', () => {
     await assertFails(setDoc(doc(as('alice'), 'prices/sv03'), { ...price, owner: 'alice' }));
     await assertFails(setDoc(doc(as('alice'), 'prices/sv03'), { cards: 'cheap' }));
     await assertFails(setDoc(doc(as('alice'), 'prices/sv03/months/november'), { 'sv03-125': {} }));
+  });
+
+  it('цены JustTCG японских карт: участник пишет и читает prices/jt_{код}, посторонний — нет', async () => {
+    await seedMember('alice');
+    const entry = { '3': { d: '2026-11-20', j: 'pokemon-japan-mbg-mega-gengar-ex', n: 'Mega Gengar ex', v: { Holofoil: 5.81 } } };
+    await assertSucceeds(setDoc(doc(as('alice'), 'prices/jt_MBG'), { cards: entry }, { merge: true }));
+    await assertSucceeds(
+      setDoc(doc(as('alice'), 'prices/jt_MBG/months/2026-11'), { '3': { '20': { Holofoil: 5.81 } } }, { merge: true }),
+    );
+    await assertSucceeds(getDoc(doc(as('alice'), 'prices/jt_MBG')));
+    await assertFails(setDoc(doc(as('mallory'), 'prices/jt_MBG'), { cards: entry }));
+  });
+
+  it('без своего ключа JustTCG цена японской карты берётся из общего кэша клуба', async () => {
+    await seedMember('alice');
+    await seed('prices/jt_MBG', {
+      cards: { '3': { d: '2000-01-01', j: 'pokemon-japan-mbg-mega-gengar-ex', n: 'Mega Gengar ex', v: { Holofoil: 5.81 } } },
+    });
+    const ref = { setCode: 'MBG', number: '003', total: '021', printing: 'holo' as const, verifyName: true };
+    const prices = await loadJapanesePrices(as('alice'), [
+      { ...ref, key: 'mine', englishName: 'Mega Gengar ex' },
+      // Тот же код и номер, но другое имя: код сета прочитан неверно, чужая цена не подставляется
+      { ...ref, key: 'misread', englishName: 'Mega Venusaur ex' },
+    ]);
+    expect(prices.get('mine')).toBe(5.81);
+    expect(prices.has('misread')).toBe(false);
   });
 
   it('цены не удаляются', async () => {

@@ -85,25 +85,31 @@ service cloud.firestore {
           && getAfter(invitePath(code)).data.createdBy == uid;
       }
 
-      // Альбом участника: ссылка на карту в TCGdex, сколько копий и вариант печати.
+      // Альбом участника: ссылка на карту в TCGdex, сколько копий, вариант печати и язык карты.
+      // У карты, которой нет в базе, вместо ссылки — то, что на ней напечатано (printed).
       // Альбомы друзей видны всем участникам, менять свой может только хозяин.
+      // Язык и напечатанное после добавления не меняются: это уже другая карта.
       match /cards/{cardId} {
         allow read: if isMember();
 
         allow create: if isOwner()
           && validId(cardId, 60)
-          && request.resource.data.keys().hasOnly(['setId', 'count', 'variant', 'addedAt', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['setId', 'count', 'variant', 'condition', 'lang', 'printed', 'addedAt', 'updatedAt'])
           && request.resource.data.keys().hasAll(['setId', 'count', 'addedAt', 'updatedAt'])
           && validId(request.resource.data.setId, 40)
           && validCount(request.resource.data.count)
           && validVariant(request.resource.data)
+          && validCondition(request.resource.data)
+          && validLang(request.resource.data)
+          && validPrinted(request.resource.data)
           && request.resource.data.addedAt == request.time
           && request.resource.data.updatedAt == request.time;
 
         allow update: if isOwner()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count', 'variant', 'updatedAt'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count', 'variant', 'condition', 'updatedAt'])
           && validCount(request.resource.data.count)
           && validVariant(request.resource.data)
+          && validCondition(request.resource.data)
           && request.resource.data.updatedAt == request.time;
 
         allow delete: if isOwner();
@@ -118,6 +124,35 @@ service cloud.firestore {
 
         function validVariant(data) {
           return !('variant' in data) || data.variant in ['normal', 'holo', 'reverse'];
+        }
+
+        // Состояние по шкале TCGplayer (CONDITIONS в src/lib/collection.ts); без поля — Near Mint
+        function validCondition(data) {
+          return !('condition' in data) || data.condition in ['NM', 'LP', 'MP', 'HP', 'DMG'];
+        }
+
+        // Коды языков из src/lib/languages.ts
+        function validLang(data) {
+          return !('lang' in data)
+            || data.lang in ['en', 'fr', 'de', 'it', 'es', 'pt', 'ru', 'ja', 'zh-tw', 'zh-cn', 'ko', 'id', 'th', 'other'];
+        }
+
+        // Длины те же, что PRINTED_LIMITS в src/lib/collection.ts
+        function validPrinted(data) {
+          return !('printed' in data) || (
+            data.printed is map
+            && data.printed.keys().hasOnly(['name', 'englishName', 'number', 'total', 'setCode'])
+            && data.printed.keys().hasAll(['name', 'englishName', 'number', 'total', 'setCode'])
+            && validText(data.printed.name, 80, false)
+            && validText(data.printed.englishName, 80, true)
+            && validText(data.printed.number, 12, false)
+            && validText(data.printed.total, 12, true)
+            && validText(data.printed.setCode, 16, true)
+          );
+        }
+
+        function validText(value, max, nullable) {
+          return (nullable && value == null) || (value is string && value.size() > 0 && value.size() <= max);
         }
       }
     }

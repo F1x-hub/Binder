@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useOwned } from '@/lib/collection-state';
 import { CARD_FORMS, DECK_FORMS, SET_FORMS, formatCardPrice, formatInteger, formatUsd, pluralWord, type WordForms } from '@/lib/format';
+import { displayNames } from '@/lib/names';
 import { imageFiles } from '@/lib/photo';
 import { appUrl, openAppFromPopup } from '@/lib/tabs';
 import { collectionTotals, newestFirst, useCardViews } from '@/lib/useCardViews';
@@ -50,7 +51,10 @@ export function Home({ onScan, onSettings }: Props) {
       <main className={styles.main}>
         <section className={styles.value}>
           <div className={styles.label}>Стоимость коллекции</div>
-          <div className={styles.amount}>{formatUsd(totals.value)}</div>
+          <div className={styles.amount}>{formatUsd(totals.value, true)}</div>
+          {totals.euro > 0 && (
+            <div className={styles.label}>и {formatCardPrice({ u: null, e: totals.euro })} по ценам Cardmarket</div>
+          )}
           <div className={styles.stats}>
             <Stat n={totals.copies} forms={CARD_FORMS} />
             <span className={styles.divider} aria-hidden="true" />
@@ -83,12 +87,31 @@ export function Home({ onScan, onSettings }: Props) {
           </div>
           {recent.length > 0 ? (
             <div className={styles.recentGrid}>
-              {recent.map((card) => (
-                <div key={card.cardId} className={styles.recentCard}>
-                  <CardImage image={card.image} name={card.name} />
-                  <span className={styles.recentPrice}>{formatCardPrice(card.price)}</span>
-                </div>
-              ))}
+              {recent.map((card) => {
+                const path = `/card/${encodeURIComponent(card.docId)}`;
+                return (
+                  <a
+                    key={card.docId}
+                    className={styles.recentCard}
+                    href={appUrl(path)}
+                    aria-label={`${displayNames(card.name, card.englishName).primary}: открыть карточку`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void openAppFromPopup(path);
+                    }}
+                  >
+                    <CardImage
+                      image={card.image}
+                      limitless={card.limitless}
+                      thumb={card.thumb}
+                      name={displayNames(card.name, card.englishName).primary}
+                      number={card.localId}
+                      lang={card.lang}
+                    />
+                    <span className={styles.recentPrice}>{formatCardPrice(card.price)}</span>
+                  </a>
+                );
+              })}
             </div>
           ) : (
             <p className={styles.empty}>

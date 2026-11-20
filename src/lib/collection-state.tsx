@@ -1,6 +1,6 @@
 import { onSnapshot } from 'firebase/firestore';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { cardsOf, type OwnedCard } from '@/lib/collection';
+import { cardsOf, ownedFromDoc, type OwnedCard } from '@/lib/collection';
 import { binderDb } from '@/lib/db';
 
 export type CollectionState =
@@ -10,7 +10,7 @@ export type CollectionState =
 
 const CollectionContext = createContext<CollectionState>({ status: 'loading' });
 
-/** Альбом участника: живая подписка на members/{uid}/cards. */
+/** Альбом участника: живая подписка на members/{uid}/cards. byId — по ID документа. */
 export function CollectionProvider({ uid, children }: { uid: string; children: ReactNode }) {
   const [state, setState] = useState<CollectionState>({ status: 'loading' });
 
@@ -19,8 +19,8 @@ export function CollectionProvider({ uid, children }: { uid: string; children: R
     return onSnapshot(
       cardsOf(binderDb(), uid),
       (snapshot) => {
-        const cards = snapshot.docs.map((item) => ({ ...(item.data() as Omit<OwnedCard, 'cardId'>), cardId: item.id }));
-        setState({ status: 'ready', cards, byId: new Map(cards.map((card) => [card.cardId, card])) });
+        const cards = snapshot.docs.map((item) => ownedFromDoc(item.id, item.data()));
+        setState({ status: 'ready', cards, byId: new Map(cards.map((card) => [card.docId, card])) });
       },
       (error) => setState({ status: 'error', message: error.message }),
     );

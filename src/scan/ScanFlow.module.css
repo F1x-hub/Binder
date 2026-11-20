@@ -245,6 +245,32 @@
   flex-shrink: 0;
 }
 
+/* «Ни одна не подходит»: без картинки, рамка пунктиром */
+.optionPlain {
+  border-style: dashed;
+}
+
+.missing {
+  display: flex;
+  gap: 14px;
+}
+
+.missingImage {
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.missingText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.missingText .actions {
+  margin-top: 4px;
+}
+
 .optionText {
   display: flex;
   flex-direction: column;

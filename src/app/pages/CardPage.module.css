@@ -1,0 +1,551 @@
+/* Страница карточки по макету Card.dc.html: карта слева, сведения справа, на узком экране друг под другом */
+
+.muted {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.textLink {
+  color: var(--link);
+  font-weight: 600;
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 14px 0 10px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 40px 56px;
+}
+
+.left {
+  flex: 1 1 340px;
+  max-width: 420px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.right {
+  flex: 999 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Переключатель из двух-трёх кнопок: выбранная — цветом выбора темы */
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  border: var(--border) solid var(--line);
+}
+
+.segmented button {
+  height: 42px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--selected);
+  color: var(--on-selected);
+}
+
+.periods {
+  margin-left: auto;
+}
+
+.periods button {
+  height: 38px;
+}
+
+/* Счётчик копий и состояние */
+.collection {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 16px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+.collectionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  font-size: 14px;
+}
+
+.divider {
+  height: var(--border);
+  background: var(--line);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.iconButton {
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.iconButton:disabled {
+  opacity: 0.5;
+}
+
+.confirming {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.count {
+  width: 32px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* «Оценить состояние по фото»: вторичная кнопка во всю ширину панели */
+.gradeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 4px 0 12px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.gradeButton:hover {
+  border-color: var(--muted);
+}
+
+.error {
+  padding: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Заголовок карты */
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-inner);
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--surface-2);
+  color: var(--text);
+  border: var(--border) solid var(--line);
+}
+
+.energy {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--energy);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+  vertical-align: -1px;
+}
+
+:global([data-theme='retro']) .energy {
+  background: var(--card-back);
+}
+
+.name {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: round(calc(52px * var(--display-scale)), 1px);
+  letter-spacing: var(--display-tracking);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+/* Имя как напечатано на карте (японское и т. п.) под английским */
+.original {
+  margin-top: -6px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.meta {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+/* Цены */
+.prices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 12px;
+}
+
+.priceCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+.priceLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.priceValue {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: round(calc(30px * var(--display-scale)), 1px);
+  letter-spacing: var(--display-tracking);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.priceChange {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--up);
+}
+
+.down {
+  color: var(--down);
+}
+
+/* Пояснение без направления цены: обычным приглушённым цветом */
+.neutral {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Панели: история цены, о карте */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+.panelHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.panelHead > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panelTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.chart {
+  display: flex;
+  gap: 12px;
+}
+
+.axis {
+  position: relative;
+  width: 52px;
+  height: 200px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.axis span {
+  position: absolute;
+  right: 0;
+}
+
+.plot {
+  position: relative;
+  flex-grow: 1;
+  min-width: 0;
+  height: 200px;
+}
+
+.plot svg {
+  display: block;
+}
+
+.grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.area {
+  fill: var(--chart-fill);
+}
+
+.line {
+  fill: none;
+  stroke: var(--chart);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.marker {
+  position: absolute;
+  right: -6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--chart);
+  border: 3px solid var(--surface);
+}
+
+.xAxis {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 64px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.empty {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.source {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* О карте: атаки, способности и сведения */
+.moves {
+  display: flex;
+  flex-direction: column;
+}
+
+.move {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0;
+  border-top: var(--border) solid var(--line);
+}
+
+.move:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.moveHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+}
+
+.moveKind {
+  padding: 2px 8px;
+  border-radius: var(--radius-inner);
+  background: var(--surface-2);
+  border: var(--border) solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.moveName {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cost {
+  display: flex;
+  gap: 3px;
+  min-width: 12px;
+}
+
+.damage {
+  margin-left: auto;
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.moveText {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 0 28px;
+  margin: 0;
+}
+
+.fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  align-items: center;
+  border-top: var(--border) solid var(--line);
+  font-size: 14px;
+}
+
+.fact dt {
+  color: var(--muted);
+}
+
+.fact dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 500;
+}
+
+.energies {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 10px;
+}
+
+.flavor {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* Есть у друзей */
+.friends {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px 0 8px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.chipName {
+  font-weight: 600;
+}
+
+/* Просмотр во весь экран */
+.viewerCard {
+  width: min(100%, 460px);
+}
+
+.viewerCaption {
+  font-size: 14px;
+  color: rgba(244, 244, 245, 0.8);
+  text-align: center;
+}

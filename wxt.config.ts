@@ -15,14 +15,18 @@ export default defineConfig({
     name: 'Binder',
     description: 'Закрытый клуб коллекционеров: альбом настоящих карточек, цены и колоды.',
     permissions: ['storage', 'identity'],
+    // Поиск японских карт по имени на limitlesstcg.com отдаёт HTML без CORS (src/lib/limitless.ts).
+    // Их JSON и CDN со сканами разрешают запросы откуда угодно, им разрешение не нужно.
+    host_permissions: ['https://limitlesstcg.com/*'],
     // OAuth-клиент типа Chrome Extension в Google Cloud (проект binder-54fb1), привязан к ID выше.
     // chrome.identity.getAuthToken берёт аккаунт, под которым залогинен Chrome.
     oauth2: {
       client_id: '934060415328-3nr528qh55pt1a0g0i6pmt19lcpj2no8.apps.googleusercontent.com',
       scopes: ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
     },
-    // CSS round() для масштаба заголовков в теме Ретро есть с Chrome 125.
-    minimum_chrome_version: '125',
+    // Chrome 135+: выпадающие списки оформлены через appearance: base-select (src/ui/Select.tsx).
+    // CSS round() для заголовков Ретро есть с 125, так что ограничение задаёт Select.
+    minimum_chrome_version: '135',
     action: { default_title: 'Binder' },
   },
   // WXT открывает свой Chrome с чистым профилем без входа в Google, а chrome.identity
