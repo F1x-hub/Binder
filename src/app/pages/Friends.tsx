@@ -1,19 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { InviteCard } from '@/app/InviteCard';
 import { usePageTitle } from '@/app/usePageTitle';
 import { useAuth } from '@/lib/auth-state';
+import { useOwned } from '@/lib/collection-state';
 import { binderDb } from '@/lib/db';
 import { CARD_FORMS, formatInteger, pluralWord, type WordForms } from '@/lib/format';
 import { clubMembers, friendsErrorMessage, joinedLabel, type ClubMember } from '@/lib/friends';
 import { displayNames } from '@/lib/names';
 import { pickShowcase } from '@/lib/showcase';
-import { collectionTotals, useCardViews } from '@/lib/useCardViews';
+import { collectionTotals, useCardViews, type CardView } from '@/lib/useCardViews';
 import { useFriendAlbum } from '@/lib/useFriendAlbum';
 import { Avatar } from '@/ui/Avatar';
 import { CardImage } from '@/ui/CardImage';
 import { EmptyState } from '@/ui/EmptyState';
 import { ForwardIcon } from '@/ui/Icons';
+import { FeedPanel, type FeedOwner } from './FeedPanel';
+import { FriendCardViewer } from './FriendCardViewer';
 import { Stat, numberLabel, valueParts } from './ProfileParts';
 import styles from './Page.module.css';
 import friends from './Friends.module.css';
@@ -22,10 +25,15 @@ const MEMBER_FORMS: WordForms = ['участник', 'участника', 'уч
 
 type MembersState = { status: 'loading' } | { status: 'ready'; members: ClubMember[] } | { status: 'error'; message: string };
 
+/** Карты альбома друга для ленты: null — ещё грузятся, 'error' — не загрузились. */
+type AlbumViews = CardView[] | 'error' | null;
+
 /**
  * Друзья: все участники клуба, у каждого число карт, стоимость альбома и витрина.
  * Список участников — одно чтение на участника, альбом каждого — из кэша браузера
  * с дочитыванием изменений (src/lib/friends.ts), цены — из общего кэша клуба.
+ * Лента друзей собирается из тех же альбомов: карточки друзей отдают ей свои карты,
+ * своих чтений у ленты нет.
  */
 export function Friends() {
   usePageTitle('Друзья');
@@ -44,7 +52,31 @@ export function Friends() {
     };
   }, []);
 
-  const others = state.status === 'ready' ? state.members.filter((member) => member.uid !== myUid) : [];
+  const others = useMemo(
+    () => (state.status === 'ready' ? state.members.filter((member) => member.uid !== myUid) : []),
+    [state, myUid],
+  );
+  const [albums, setAlbums] = useState<Readonly<Record<string, AlbumViews>>>({});
+  const report = useCallback(
+    (uid: string, views: AlbumViews) => setAlbums((previous) => (previous[uid] === views ? previous : { ...previous, [uid]: views })),
+    [],
+  );
+  const [open, setOpen] = useState<{ owner: FeedOwner; view: CardView } | null>(null);
+  const mine = useOwned();
+
+  // Лента ждёт все альбомы, иначе события прыгали бы по мере загрузки
+  const loaded = others.every((member) => albums[member.uid] != null);
+  const sources = useMemo(
+    () =>
+      state.status === 'ready' && loaded
+        ? others.flatMap((member) => {
+            const views = albums[member.uid];
+            return Array.isArray(views) ? [{ owner: member, cards: views }] : [];
+          })
+        : null,
+    [state.status, loaded, others, albums],
+  );
+  const failed = others.filter((member) => albums[member.uid] === 'error').length;
 
   return (
     <>
@@ -74,24 +106,46 @@ export function Friends() {
           {others.length > 0 && (
             <ul className={friends.list} aria-label="Участники клуба">
               {others.map((member) => (
-                <FriendCard key={member.uid} member={member} />
+                <FriendCard key={member.uid} member={member} onViews={report} />
               ))}
             </ul>
           )}
         </div>
         <aside className={styles.side}>
+          {state.status !== 'error' && others.length > 0 && (
+            <FeedPanel
+              title="Лента друзей"
+              sources={sources}
+              showOwner
+              onOpen={(owner, view) => setOpen({ owner, view })}
+              empty="Когда друзья добавят карты в альбомы, они появятся здесь."
+              warning={failed > 0 ? 'Не все альбомы загрузились, поэтому лента неполная.' : null}
+            />
+          )}
           <InviteCard />
         </aside>
       </div>
+      <FriendCardViewer
+        view={open?.view ?? null}
+        owner={open?.owner.displayName ?? ''}
+        mine={open ? mine.byId.has(open.view.docId) : false}
+        onClose={() => setOpen(null)}
+      />
     </>
   );
 }
 
-/** Карточка друга: имя, с какого времени в клубе, число карт, стоимость и витрина. Ведёт в профиль. */
-function FriendCard({ member }: { member: ClubMember }) {
+/**
+ * Карточка друга: имя, с какого времени в клубе, число карт, стоимость и витрина. Ведёт в профиль.
+ * Карты альбома отдаёт странице для ленты (onViews).
+ */
+function FriendCard({ member, onViews }: { member: ClubMember; onViews: (uid: string, views: AlbumViews) => void }) {
   const album = useFriendAlbum(member.uid);
   const cards = album.status === 'ready' ? album.value : [];
   const views = useCardViews(cards, album.status === 'ready');
+  useEffect(() => {
+    onViews(member.uid, album.status === 'error' ? 'error' : views);
+  }, [onViews, member.uid, album.status, views]);
   const totals = views ? collectionTotals(views) : null;
   const value = totals ? valueParts(totals) : null;
   const showcase = pickShowcase(member.showcase, views ?? []);

@@ -1,33 +1,33 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'wouter';
 import { usePageTitle } from '@/app/usePageTitle';
 import { useAuth } from '@/lib/auth-state';
 import { useOwned } from '@/lib/collection-state';
-import { CARD_FORMS, SET_FORMS, countLabel, formatCardPrice, formatInteger, pluralWord } from '@/lib/format';
+import { CARD_FORMS, SET_FORMS, countLabel, formatInteger, pluralWord } from '@/lib/format';
 import { joinedLabel } from '@/lib/friends';
-import { LANGUAGE_LABELS, htmlLang } from '@/lib/languages';
 import { useMembership } from '@/lib/membership-state';
-import { displayNames } from '@/lib/names';
 import { MAX_SHOWCASE, pickShowcase, showcaseOf } from '@/lib/showcase';
 import { collectionTotals, useCardViews, type CardView } from '@/lib/useCardViews';
 import { useClubMember, useFriendAlbum } from '@/lib/useFriendAlbum';
 import { Avatar } from '@/ui/Avatar';
 import { Button } from '@/ui/Button';
-import { CardViewer } from '@/ui/CardViewer';
 import { EmptyState } from '@/ui/EmptyState';
 import { BackIcon, PencilIcon, PlusIcon } from '@/ui/Icons';
-import { TiltCard } from '@/ui/TiltCard';
-import { CardTile, Stat, byPrice, groupBySet, numberLabel, valueParts } from './ProfileParts';
+import { FeedPanel, type FeedOwner } from './FeedPanel';
+import { FriendCardViewer } from './FriendCardViewer';
+import { CardTile, Stat, byPrice, groupBySet, valueParts } from './ProfileParts';
 import { ShowcaseEditor } from './ShowcaseEditor';
+import page from './Page.module.css';
 import styles from './Profile.module.css';
 
 /** Сколько карт показывать в «Нет у тебя»: самые дорогие. */
 const MISSING_LIMIT = 12;
 
 /**
- * Профиль участника по макету Profile: шапка с числами, витрина и альбом. `/u/me` и свой uid —
- * свой профиль, где выбирается витрина. Чужой альбом только для чтения: карта открывается
- * в просмотре, а страница карточки (`#/card/…`) показывает только свой альбом.
+ * Профиль участника по макету Profile: шапка с числами, витрина и альбом, справа — лента
+ * новых карт этого участника. `/u/me` и свой uid — свой профиль, где выбирается витрина.
+ * Чужой альбом только для чтения: карта открывается в просмотре, а страница карточки
+ * (`#/card/…`) показывает только свой альбом.
  */
 export function Profile() {
   const { uid } = useParams<{ uid: string }>();
@@ -48,24 +48,39 @@ function MyProfile({ uid }: { uid: string }) {
   const views = useCardViews(cards, ready);
   const [editing, setEditing] = useState(false);
   const showcase = showcaseOf(member);
+  const name = member?.displayName ?? user?.displayName ?? 'Без имени';
+  const photoURL = member?.photoURL ?? user?.photoURL ?? null;
+  const owner = useMemo<FeedOwner>(() => ({ uid, displayName: name, photoURL }), [uid, name, photoURL]);
+  const sources = useMemo(() => (views ? [{ owner, cards: views }] : null), [owner, views]);
 
   return (
     <>
       <ProfileView
-        name={member?.displayName ?? user?.displayName ?? 'Без имени'}
-        photoURL={member?.photoURL ?? user?.photoURL ?? null}
+        name={name}
+        photoURL={photoURL}
         since={joinedLabel(member?.joinedAt ?? null)}
         mine
         album={ready ? 'ready' : 'loading'}
         views={views}
         showcase={showcase}
         onEditShowcase={() => setEditing(true)}
-        tile={(view, size) => <CardTile view={view} size={size} href={`/card/${encodeURIComponent(view.docId)}`} />}
+        tile={(view, size) => <CardTile view={view} size={size} href={cardHref(view)} />}
+        feed={
+          <FeedPanel
+            title="Новое в альбоме"
+            note="Так твои новые карты видят друзья в ленте"
+            sources={sources}
+            href={cardHref}
+            empty="Новых карт пока нет. Отсканируй карточки, и они появятся здесь."
+          />
+        }
       />
       <ShowcaseEditor open={editing} uid={uid} views={views} owned={byId} current={showcase} onClose={() => setEditing(false)} />
     </>
   );
 }
+
+const cardHref = (view: CardView) => `/card/${encodeURIComponent(view.docId)}`;
 
 function FriendProfile({ uid }: { uid: string }) {
   const member = useClubMember(uid);
@@ -74,6 +89,7 @@ function FriendProfile({ uid }: { uid: string }) {
   const mine = useOwned();
   const [open, setOpen] = useState<CardView | null>(null);
   const person = member.status === 'ready' ? member.value : null;
+  const sources = useMemo(() => (person && views ? [{ owner: person, cards: views }] : null), [person, views]);
   usePageTitle(person?.displayName ?? 'Профиль');
 
   if (member.status === 'loading') return <p className={styles.muted}>Загружаем профиль…</p>;
@@ -113,6 +129,14 @@ function FriendProfile({ uid }: { uid: string }) {
         views={views}
         showcase={person.showcase}
         tile={(view, size) => <CardTile view={view} size={size} onOpen={() => setOpen(view)} />}
+        feed={
+          <FeedPanel
+            title="Новое в альбоме"
+            sources={sources}
+            onOpen={(_, view) => setOpen(view)}
+            empty={views && views.length === 0 ? 'Альбом пока пуст.' : 'Новых карт пока нет.'}
+          />
+        }
         extra={
           missing && missing.length > 0 ? (
             <section className={styles.section} aria-labelledby="missing-title">
@@ -152,9 +176,11 @@ type ViewProps = {
   tile: (view: CardView, size: 'normal' | 'small') => ReactNode;
   /** Разделы под витриной */
   extra?: ReactNode;
+  /** Правая колонка из макета: лента новых карт */
+  feed?: ReactNode;
 };
 
-function ProfileView({ name, photoURL, since, mine, album, albumError, views, showcase, onEditShowcase, tile, extra }: ViewProps) {
+function ProfileView({ name, photoURL, since, mine, album, albumError, views, showcase, onEditShowcase, tile, extra, feed }: ViewProps) {
   const [tab, setTab] = useState<'show' | 'all'>('show');
   const loaded = views ?? [];
   const totals = views ? collectionTotals(views) : null;
@@ -199,119 +225,77 @@ function ProfileView({ name, photoURL, since, mine, album, albumError, views, sh
 
       {album === 'error' && <EmptyState title="Альбом не загрузился">{albumError}</EmptyState>}
 
-      {tab === 'show' && album !== 'error' && (
-        <div className={styles.column}>
-          <section className={styles.section} aria-labelledby="showcase-title">
-            <div className={styles.sectionHead}>
-              <h2 id="showcase-title" className={styles.sectionTitle}>
-                Витрина
-              </h2>
-              <span className={styles.muted}>
-                {mine ? 'Эти карты друзья видят первыми в твоём профиле' : `Карты, которые ${name} показывает клубу`}
-              </span>
+      {album !== 'error' && (
+        <div className={page.split}>
+          {tab === 'show' ? (
+            <div className={styles.column}>
+              <section className={styles.section} aria-labelledby="showcase-title">
+                <div className={styles.sectionHead}>
+                  <h2 id="showcase-title" className={styles.sectionTitle}>
+                    Витрина
+                  </h2>
+                  <span className={styles.muted}>
+                    {mine ? 'Эти карты друзья видят первыми в твоём профиле' : `Карты, которые ${name} показывает клубу`}
+                  </span>
+                </div>
+                {!views ? (
+                  <p className={styles.muted}>Загружаем альбом…</p>
+                ) : mine && views.length === 0 ? (
+                  <EmptyState
+                    title="Сначала добавь карты в альбом"
+                    action={
+                      <Link href="/scan" className={styles.textLink}>
+                        Сканировать карточки
+                      </Link>
+                    }
+                  >
+                    В витрину попадают карты из твоего альбома: до шести самых любимых или ценных.
+                  </EmptyState>
+                ) : shown.length === 0 && !mine ? (
+                  <p className={styles.muted}>Витрина пока пуста.</p>
+                ) : (
+                  <div className={styles.grid}>
+                    {shown.map((view) => (
+                      <div key={view.docId}>{tile(view, 'normal')}</div>
+                    ))}
+                    {Array.from({ length: emptySlots }, (_, index) => (
+                      <button key={index} type="button" className={styles.slot} onClick={onEditShowcase}>
+                        <PlusIcon size={20} stroke={2} />
+                        <span>{shown.length === 0 && index === 0 ? 'Выбрать карты' : 'Добавить карту'}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+              {extra}
             </div>
-            {!views ? (
-              <p className={styles.muted}>Загружаем альбом…</p>
-            ) : mine && views.length === 0 ? (
-              <EmptyState
-                title="Сначала добавь карты в альбом"
-                action={
-                  <Link href="/scan" className={styles.textLink}>
-                    Сканировать карточки
-                  </Link>
-                }
-              >
-                В витрину попадают карты из твоего альбома: до шести самых любимых или ценных.
-              </EmptyState>
-            ) : shown.length === 0 && !mine ? (
-              <p className={styles.muted}>Витрина пока пуста.</p>
-            ) : (
-              <div className={styles.grid}>
-                {shown.map((view) => (
-                  <div key={view.docId}>{tile(view, 'normal')}</div>
-                ))}
-                {Array.from({ length: emptySlots }, (_, index) => (
-                  <button key={index} type="button" className={styles.slot} onClick={onEditShowcase}>
-                    <PlusIcon size={20} stroke={2} />
-                    <span>{shown.length === 0 && index === 0 ? 'Выбрать карты' : 'Добавить карту'}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-          {extra}
-        </div>
-      )}
-
-      {tab === 'all' && album !== 'error' && (
-        <div className={styles.column}>
-          {!views && <p className={styles.muted}>Загружаем альбом…</p>}
-          {views && views.length === 0 && (
-            <EmptyState title="В альбоме пока нет карт">
-              {mine ? 'Сфотографируй свои карточки: Binder узнает их и сложит в альбом.' : 'Когда здесь появятся карты, их увидит весь клуб.'}
-            </EmptyState>
+          ) : (
+            <div className={styles.column}>
+              {!views && <p className={styles.muted}>Загружаем альбом…</p>}
+              {views && views.length === 0 && (
+                <EmptyState title="В альбоме пока нет карт">
+                  {mine ? 'Сфотографируй свои карточки: Binder узнает их и сложит в альбом.' : 'Когда здесь появятся карты, их увидит весь клуб.'}
+                </EmptyState>
+              )}
+              {groupBySet(loaded).map((group) => (
+                <section key={group.key} className={styles.panel} aria-label={group.setName}>
+                  <div className={styles.panelHead}>
+                    <h2 className={styles.setName}>{group.setName}</h2>
+                    <span className={styles.muted}>{countLabel(group.cards.length, CARD_FORMS)}</span>
+                    {group.note && <span className={styles.muted}>{group.note}</span>}
+                  </div>
+                  <div className={styles.albumGrid}>
+                    {group.cards.map((view) => (
+                      <div key={view.docId}>{tile(view, 'normal')}</div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
           )}
-          {groupBySet(loaded).map((group) => (
-            <section key={group.key} className={styles.panel} aria-label={group.setName}>
-              <div className={styles.panelHead}>
-                <h2 className={styles.setName}>{group.setName}</h2>
-                <span className={styles.muted}>{countLabel(group.cards.length, CARD_FORMS)}</span>
-                {group.note && <span className={styles.muted}>{group.note}</span>}
-              </div>
-              <div className={styles.albumGrid}>
-                {group.cards.map((view) => (
-                  <div key={view.docId}>{tile(view, 'normal')}</div>
-                ))}
-              </div>
-            </section>
-          ))}
+          {feed && <aside className={page.side}>{feed}</aside>}
         </div>
       )}
     </>
-  );
-}
-
-/** Карта из чужого альбома во весь экран: только посмотреть, без правки. */
-function FriendCardViewer({ view, owner, mine, onClose }: { view: CardView | null; owner: string; mine: boolean; onClose: () => void }) {
-  const names = view ? displayNames(view.name, view.englishName) : null;
-  return (
-    <CardViewer open={view !== null} label={names ? `Карта ${names.primary}` : 'Карта'} onClose={onClose}>
-      {view && names && (
-        <>
-          <TiltCard
-            key={view.docId}
-            image={view.image}
-            limitless={view.limitless}
-            thumb={view.thumb}
-            name={names.primary}
-            number={numberLabel(view)}
-            holo={view.variant === 'holo' || view.variant === 'reverse'}
-            className={styles.viewerCard}
-          />
-          <div className={styles.viewerText}>
-            <p className={styles.viewerName}>
-              {names.primary} · {numberLabel(view)}
-            </p>
-            {names.secondary && (
-              <p className={styles.viewerMuted} lang={htmlLang(view.lang)}>
-                {names.secondary}
-              </p>
-            )}
-            <p className={styles.viewerMuted}>
-              {[view.setName, LANGUAGE_LABELS[view.lang].card, formatCardPrice(view.price)].join(' · ')}
-            </p>
-            <p className={styles.viewerMuted}>
-              Альбом: {owner}
-              {view.count > 1 ? `, копий: ${view.count}` : ''}
-            </p>
-            {mine && (
-              <Link href={`/card/${encodeURIComponent(view.docId)}`} className={styles.viewerLink}>
-                Такая есть и у тебя: открыть карточку
-              </Link>
-            )}
-          </div>
-        </>
-      )}
-    </CardViewer>
   );
 }

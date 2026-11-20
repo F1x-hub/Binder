@@ -61,3 +61,37 @@ export function rarityLabel(rarity: string | undefined): string | null {
   if (!rarity) return null;
   return rarity.replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
 }
+
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+const MINUTE_FORMS: WordForms = ['минуту', 'минуты', 'минут'];
+const HOUR_FORMS: WordForms = ['час', 'часа', 'часов'];
+const DAY_FORMS: WordForms = ['день', 'дня', 'дней'];
+const dayMonthLong = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' });
+const dayMonthYear = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+/** Сколько календарных дней (по местному времени) между двумя моментами: вчера — 1. */
+function calendarDays(from: Date, to: Date): number {
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime();
+  // Округление: в дни перевода часов в сутках 23 или 25 часов
+  return Math.round((end - start) / (24 * HOUR_MS));
+}
+
+/**
+ * Когда это было, как в макете ленты: «только что», «10 минут назад», «2 часа назад», «вчера»,
+ * «3 дня назад», а дальше недели — дата («12 ноября», в другом году — «12 ноября 2025 г.»).
+ * Время с сервера чуть впереди часов браузера — «только что».
+ */
+export function timeAgo(at: number, now = Date.now()): string {
+  const diff = now - at;
+  if (diff < MINUTE_MS) return 'только что';
+  if (diff < HOUR_MS) return `${countLabel(Math.floor(diff / MINUTE_MS), MINUTE_FORMS)} назад`;
+  const then = new Date(at);
+  const today = new Date(now);
+  const days = calendarDays(then, today);
+  if (days <= 0) return `${countLabel(Math.floor(diff / HOUR_MS), HOUR_FORMS)} назад`;
+  if (days === 1) return 'вчера';
+  if (days < 7) return `${countLabel(days, DAY_FORMS)} назад`;
+  return (then.getFullYear() === today.getFullYear() ? dayMonthLong : dayMonthYear).format(then);
+}

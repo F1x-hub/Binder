@@ -1,0 +1,34 @@
+/* Просмотр чужой карты: подложка тёмная во всех темах, текст светлый */
+.card {
+  width: min(100%, 360px);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 420px;
+  text-align: center;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.muted {
+  font-size: 14px;
+  color: rgba(244, 244, 245, 0.72);
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: #f4f4f5;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
