@@ -1,0 +1,180 @@
+rules_version = '2';
+
+// Правила Binder. Закрыто всё, что не открыто явно.
+// Клуб закрытый: данные видят только участники (документ members/{uid}).
+// Вступить можно только по одноразовому коду из invites/{code}: код гасится и участник
+// создаётся одной пакетной записью, правила сверяют обе половины через get/getAfter.
+// Роли админа нет: участников удаляют и коды без лимита выдают в консоли Firebase.
+// Тесты: tests/rules (npm run test:rules).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function memberPath(uid) {
+      return /databases/$(database)/documents/members/$(uid);
+    }
+
+    function invitePath(code) {
+      return /databases/$(database)/documents/invites/$(code);
+    }
+
+    function isMember() {
+      return signedIn() && exists(memberPath(request.auth.uid));
+    }
+
+    // 8 символов без 0/O/1/I/L, вид XXXX-XXXX (src/lib/invite-code.ts)
+    function validCode(code) {
+      return code is string && code.matches('^[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}$');
+    }
+
+    function validProfile(data) {
+      return data.displayName is string
+        && data.displayName.size() > 0
+        && data.displayName.size() <= 80
+        && (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2048));
+    }
+
+    // Код существовал, не был погашен до записи и гасится этим пользователем в этой же записи
+    function redeemsInvite(code, uid) {
+      return exists(invitePath(code))
+        && get(invitePath(code)).data.usedBy == null
+        && getAfter(invitePath(code)).data.usedBy == uid;
+    }
+
+    match /members/{uid} {
+      // Себя можно прочитать и до вступления: так приложение узнаёт, участник ли ты
+      allow get: if signedIn() && (request.auth.uid == uid || isMember());
+      allow list: if isMember();
+
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(
+          ['displayName', 'photoURL', 'joinedAt', 'invitedBy', 'inviteCode', 'invitesLeft', 'lastInvite'])
+        && request.resource.data.keys().hasAll(
+          ['displayName', 'photoURL', 'joinedAt', 'invitedBy', 'inviteCode', 'invitesLeft', 'lastInvite'])
+        && validProfile(request.resource.data)
+        && request.resource.data.joinedAt == request.time
+        && request.resource.data.invitesLeft == 3
+        && request.resource.data.lastInvite == null
+        && validCode(request.resource.data.inviteCode)
+        && redeemsInvite(request.resource.data.inviteCode, uid)
+        && request.resource.data.invitedBy == get(invitePath(request.resource.data.inviteCode)).data.createdBy;
+
+      // Имя и фото меняются свободно, счётчик приглашений — только вместе с выпуском кода
+      allow update: if signedIn() && request.auth.uid == uid && (updatesProfile() || issuesInvite(uid));
+
+      allow delete: if false;
+
+      function updatesProfile() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL'])
+          && validProfile(request.resource.data);
+      }
+
+      // Счётчик минус один, lastInvite — новый код, и этот код создаётся в той же записи
+      function issuesInvite(uid) {
+        let code = request.resource.data.lastInvite;
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['invitesLeft', 'lastInvite'])
+          && resource.data.invitesLeft > 0
+          && request.resource.data.invitesLeft == resource.data.invitesLeft - 1
+          && validCode(code)
+          && !exists(invitePath(code))
+          && getAfter(invitePath(code)).data.createdBy == uid;
+      }
+
+      // Альбом участника: ссылка на карту в TCGdex, сколько копий и вариант печати.
+      // Альбомы друзей видны всем участникам, менять свой может только хозяин.
+      match /cards/{cardId} {
+        allow read: if isMember();
+
+        allow create: if isOwner()
+          && validId(cardId, 60)
+          && request.resource.data.keys().hasOnly(['setId', 'count', 'variant', 'addedAt', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['setId', 'count', 'addedAt', 'updatedAt'])
+          && validId(request.resource.data.setId, 40)
+          && validCount(request.resource.data.count)
+          && validVariant(request.resource.data)
+          && request.resource.data.addedAt == request.time
+          && request.resource.data.updatedAt == request.time;
+
+        allow update: if isOwner()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count', 'variant', 'updatedAt'])
+          && validCount(request.resource.data.count)
+          && validVariant(request.resource.data)
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if isOwner();
+
+        function isOwner() {
+          return signedIn() && request.auth.uid == uid && isMember();
+        }
+
+        function validCount(count) {
+          return count is int && count >= 1 && count <= 999;
+        }
+
+        function validVariant(data) {
+          return !('variant' in data) || data.variant in ['normal', 'holo', 'reverse'];
+        }
+      }
+    }
+
+    // ID карт и сетов TCGdex: «sv03-125», «sv03.5», «30th-c»
+    function validId(value, max) {
+      return value is string && value.matches('^[A-Za-z0-9._-]{1,' + string(max) + '}$');
+    }
+
+    // Общий кэш цен клуба. Освежает тот участник, кому карта понадобилась первой за день:
+    // так нет своего сервера и ежедневных задач. Участники доверяют друг другу, поэтому
+    // правила проверяют только форму документа. История по месяцам нужна для графиков.
+    match /prices/{setId} {
+      allow read: if isMember();
+      allow create, update: if isMember()
+        && validId(setId, 40)
+        && request.resource.data.keys().hasOnly(['cards'])
+        && request.resource.data.cards is map;
+      allow delete: if false;
+
+      match /months/{month} {
+        allow read: if isMember();
+        allow create, update: if isMember() && month.matches('^[0-9]{4}-[0-9]{2}$');
+        allow delete: if false;
+      }
+    }
+
+    match /invites/{code} {
+      // Прочитать код может тот, кто знает его целиком: 31^8 вариантов не перебрать.
+      // Списком — только свои коды (запрос с условием createdBy == свой uid).
+      allow get: if signedIn();
+      allow list: if signedIn() && resource.data.createdBy == request.auth.uid;
+
+      allow create: if isMember()
+        && validCode(code)
+        && request.resource.data.keys().hasOnly(['createdBy', 'createdAt', 'usedBy', 'usedAt'])
+        && request.resource.data.keys().hasAll(['createdBy', 'createdAt', 'usedBy', 'usedAt'])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.usedBy == null
+        && request.resource.data.usedAt == null
+        && getAfter(memberPath(request.auth.uid)).data.lastInvite == code
+        && getAfter(memberPath(request.auth.uid)).data.invitesLeft
+          == get(memberPath(request.auth.uid)).data.invitesLeft - 1;
+
+      // Погасить код: он ещё не использован, не старше 14 дней, гасит не участник,
+      // и в этой же записи появляется его документ участника с этим кодом
+      allow update: if signedIn()
+        && resource.data.usedBy == null
+        && request.time < resource.data.createdAt + duration.value(14, 'd')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedBy', 'usedAt'])
+        && request.resource.data.usedBy == request.auth.uid
+        && request.resource.data.usedAt == request.time
+        && !exists(memberPath(request.auth.uid))
+        && getAfter(memberPath(request.auth.uid)).data.inviteCode == code;
+
+      allow delete: if false;
+    }
+  }
+}

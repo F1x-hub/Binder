@@ -1,0 +1,102 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.muted {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.codeRow {
+  display: flex;
+  gap: 8px;
+}
+
+.code {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  border: var(--border) solid var(--line);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  user-select: all;
+}
+
+.copy {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--button-shadow);
+}
+
+.card .create {
+  width: auto;
+  align-self: flex-start;
+}
+
+.card .more {
+  align-self: flex-start;
+  padding: 0;
+}
+
+.error {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.history {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--border) solid var(--line);
+}
+
+.history li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  border-bottom: var(--border) solid var(--line);
+}
+
+.history li:last-child {
+  border-bottom: none;
+}
+
+.historyCode {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}

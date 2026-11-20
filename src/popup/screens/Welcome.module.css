@@ -1,0 +1,84 @@
+.screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 26px 24px 24px;
+}
+
+.title {
+  margin-top: 24px;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: round(calc(28px * var(--display-scale)), 1px);
+  line-height: 1.2;
+  letter-spacing: var(--display-tracking);
+  text-wrap: balance;
+}
+
+.lead {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.fan {
+  position: relative;
+  flex-shrink: 0;
+  height: 150px;
+  margin-top: 14px;
+}
+
+.fanCard {
+  position: absolute;
+  left: 50%;
+  width: 96px;
+  margin-left: -48px;
+  box-shadow: var(--card-shadow);
+}
+
+.left {
+  top: 12px;
+  transform: translateX(-78px) rotate(-12deg);
+}
+
+.right {
+  top: 12px;
+  transform: translateX(78px) rotate(12deg);
+}
+
+.center {
+  top: 0;
+}
+
+.form {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.code {
+  letter-spacing: 0.08em;
+}
+
+.hint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  text-align: center;
+}
+
+.switchAccount {
+  align-self: center;
+  margin-top: -6px;
+}
+
+/* Ошибка встаёт на место подсказки, чтобы экран не прыгал */
+.error {
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 600;
+  text-align: center;
+}

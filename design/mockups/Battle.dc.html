@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Binder: бой</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Rubik:wght@400;500;600;700&amp;family=Press+Start+2P&amp;display=swap">
+<style>
+body{margin:0}
+input::placeholder{color:currentColor;opacity:.6}
+@keyframes binderRise{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes binderHit{0%,100%{translate:0 0}25%{translate:-6px 0}50%{translate:5px 0}75%{translate:-3px 0}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: {{t.bg}}; color: {{t.tx}}; font-family: {{t.ff}}">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; min-height: 68px; padding: 10px 32px; box-sizing: border-box; background: {{t.hd}}; color: {{t.oh}}; border-bottom: {{t.bw}} solid {{t.hl}}">
+    <a href="Library.dc.html" style="display: flex; align-items: center; gap: 10px; color: {{t.oh}}; text-decoration: none">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="6" width="11" height="15" rx="2"></rect><path d="M8 3.6l8.6-.9a2 2 0 0 1 2.2 1.8l1.2 11.3a2 2 0 0 1-1.8 2.2l-2.2.2"></path></svg>
+      <span style="font-family: {{t.fd}}; font-weight: {{t.dw}}; font-size: {{sz.logo}}">Binder</span>
+    </a>
+    <nav aria-label="Разделы" style="display: flex; flex-wrap: wrap; gap: 4px">
+      <a href="Library.dc.html" style="{{nav.off}}">Альбом</a>
+      <a href="Deck.dc.html" style="{{nav.off}}">Колоды</a>
+      <a href="Profile.dc.html" style="{{nav.off}}">Друзья</a>
+      <a href="Battle.dc.html" aria-current="page" style="{{nav.on}}">Бой</a>
+    </nav>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 14px; color: {{t.hm}}">
+      <span>Матч с Никой · колода «Огненный шторм»</span>
+    </div>
+  </header>
+
+  <main style="max-width: 1360px; margin: 0 auto; padding: 24px 32px 40px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px">
+    <section aria-label="Игровое поле" style="flex: 999 1 820px; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: 20px; box-sizing: border-box; border-radius: {{t.r}}; background: {{t.s1}}; border: {{t.bw}} solid {{t.ln}}; box-shadow: {{sz.panelShadow}}">
+
+      <div style="display: grid; grid-template-columns: 120px minmax(0, 1fr) 120px; gap: 16px; align-items: start">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="font-size: 12px; color: {{t.mu}}">Призы Ники · 4</span>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+            <sc-for list="{{oppPrizes}}" as="p" hint-placeholder-count="6">
+              <div style="{{p.frame}}"><div style="{{p.body}}"><span style="{{p.mark}}">{{p.letter}}</span></div></div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0">
+          <div style="display: flex; justify-content: center; gap: 10px">
+            <sc-for list="{{oppBench}}" as="c" hint-placeholder-count="5">
+              <div style="width: 64px">
+                <sc-if value="{{c.full}}" hint-placeholder-val="{{ true }}">
+                  <div style="{{c.frame}}"><div style="{{c.body}}"><div style="position: absolute; left: 7%; top: 4.5%; width: 46%; height: 5%; border-radius: 2px; background: rgba(0,0,0,.24)"></div><div style="{{c.art}}"></div><div style="position: absolute; left: 7%; top: 62%; width: 78%; height: 4%; border-radius: 2px; background: rgba(0,0,0,.2)"></div></div></div>
+                </sc-if>
+                <sc-if value="{{c.empty}}" hint-placeholder-val="{{ false }}">
+                  <div style="{{c.slot}}"></div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 8px">
+            <div style="position: relative; width: 120px">
+              <div style="{{opp.frame}}">
+                <div style="{{opp.body}}">
+                  <div style="position: absolute; left: 7%; top: 4.5%; width: 46%; height: 5%; border-radius: 2px; background: rgba(0,0,0,.24)"></div>
+                  <div style="position: absolute; right: 7%; top: 3.5%; width: 12%; aspect-ratio: 1 / 1; border-radius: 50%; background: rgba(255,255,255,.65)"></div>
+                  <div style="{{opp.art}}"><div style="width: 40%; aspect-ratio: 1 / 1; border-radius: 50%; background: rgba(255,255,255,.3)"></div></div>
+                  <div style="position: absolute; left: 7%; top: 62%; width: 78%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+                  <div style="position: absolute; left: 7%; top: 69%; width: 56%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+                  <div style="position: absolute; left: 7%; top: 78%; width: 70%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+                </div>
+              </div>
+              <sc-if value="{{attacked}}" hint-placeholder-val="{{ false }}">
+                <span aria-live="polite" style="{{floatStyle}}">−180</span>
+              </sc-if>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 8px; font-size: 13px">
+              <span style="font-weight: 600">Blastoise ex</span>
+              <span style="color: {{t.mu}}; font-variant-numeric: tabular-nums">{{oppHpText}}</span>
+            </div>
+            <div style="{{oppTrack}}"><div style="{{oppFill}}"></div></div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 72px">
+            <div style="{{pile.frame}}"><div style="{{pile.body}}"><span style="{{pile.mark}}">B</span></div></div>
+            <span style="font-size: 12px; color: {{t.mu}}">Колода 31</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 72px">
+            <div style="{{oppDiscard.frame}}"><div style="{{oppDiscard.body}}"><div style="{{oppDiscard.art}}"></div></div></div>
+            <span style="font-size: 12px; color: {{t.mu}}">Сброс 12</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px">
+        <div style="flex-grow: 1; height: {{t.bw}}; background: {{t.ln}}"></div>
+        <span style="{{turnChip}}">Твой ход · 7</span>
+        <span style="font-size: 13px; color: {{t.mu}}; font-variant-numeric: tabular-nums">0:42</span>
+        <div style="flex-grow: 1; height: {{t.bw}}; background: {{t.ln}}"></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 120px minmax(0, 1fr) 120px; gap: 16px; align-items: end">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+            <sc-for list="{{myPrizes}}" as="p" hint-placeholder-count="6">
+              <div style="{{p.frame}}"><div style="{{p.body}}"><span style="{{p.mark}}">{{p.letter}}</span></div></div>
+            </sc-for>
+          </div>
+          <span style="font-size: 12px; color: {{t.mu}}">Мои призы · 3</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 8px">
+            <div style="{{myTrack}}"><div style="{{myFill}}"></div></div>
+            <div style="display: flex; align-items: baseline; gap: 8px; font-size: 13px">
+              <span style="font-weight: 600">Charizard ex</span>
+              <span style="color: {{t.mu}}; font-variant-numeric: tabular-nums">330 / 330</span>
+            </div>
+            <div style="display: flex; gap: 6px">
+              <sc-for list="{{attached}}" as="e" hint-placeholder-count="3">
+                <span style="{{e.style}}"></span>
+              </sc-for>
+            </div>
+            <div style="width: 120px">
+              <div style="{{me.frame}}">
+                <div style="{{me.body}}">
+                  <div style="position: absolute; left: 7%; top: 4.5%; width: 46%; height: 5%; border-radius: 2px; background: rgba(0,0,0,.24)"></div>
+                  <div style="position: absolute; right: 7%; top: 3.5%; width: 12%; aspect-ratio: 1 / 1; border-radius: 50%; background: rgba(255,255,255,.65)"></div>
+                  <div style="{{me.art}}"><div style="width: 40%; aspect-ratio: 1 / 1; border-radius: 50%; background: rgba(255,255,255,.3)"></div></div>
+                  <div style="position: absolute; left: 7%; top: 62%; width: 78%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+                  <div style="position: absolute; left: 7%; top: 69%; width: 56%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+                  <div style="position: absolute; left: 7%; top: 78%; width: 70%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: center; gap: 10px">
+            <sc-for list="{{myBench}}" as="c" hint-placeholder-count="5">
+              <div style="width: 64px">
+                <sc-if value="{{c.full}}" hint-placeholder-val="{{ true }}">
+                  <div style="{{c.frame}}"><div style="{{c.body}}"><div style="position: absolute; left: 7%; top: 4.5%; width: 46%; height: 5%; border-radius: 2px; background: rgba(0,0,0,.24)"></div><div style="{{c.art}}"></div><div style="position: absolute; left: 7%; top: 62%; width: 78%; height: 4%; border-radius: 2px; background: rgba(0,0,0,.2)"></div></div></div>
+                </sc-if>
+                <sc-if value="{{c.empty}}" hint-placeholder-val="{{ false }}">
+                  <div style="{{c.slot}}"></div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 72px">
+            <div style="{{myDiscard.frame}}"><div style="{{myDiscard.body}}"><div style="{{myDiscard.art}}"></div></div></div>
+            <span style="font-size: 12px; color: {{t.mu}}">Сброс 9</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 72px">
+            <div style="{{pile.frame}}"><div style="{{pile.body}}"><span style="{{pile.mark}}">B</span></div></div>
+            <span style="font-size: 12px; color: {{t.mu}}">Колода 28</span>
+          </div>
+        </div>
+      </div>
+
+      <div aria-label="Рука, 7 карт" style="position: relative; height: 156px; margin-top: 4px">
+        <sc-for list="{{hand}}" as="c" hint-placeholder-count="7">
+          <div style="{{c.frame}}">
+            <div style="{{c.body}}">
+              <div style="position: absolute; left: 7%; top: 4.5%; width: 46%; height: 5%; border-radius: 2px; background: rgba(0,0,0,.24)"></div>
+              <div style="position: absolute; right: 7%; top: 3.5%; width: 12%; aspect-ratio: 1 / 1; border-radius: 50%; background: rgba(255,255,255,.65)"></div>
+              <div style="{{c.art}}"><div style="width: 40%; aspect-ratio: 1 / 1; border-radius: 50%; background: rgba(255,255,255,.3)"></div></div>
+              <div style="position: absolute; left: 7%; top: 62%; width: 78%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+              <div style="position: absolute; left: 7%; top: 69%; width: 56%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+              <div style="position: absolute; left: 7%; top: 78%; width: 70%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <aside style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <section style="display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: {{t.r}}; background: {{t.s1}}; border: {{t.bw}} solid {{t.ln}}; box-shadow: {{sz.panelShadow}}">
+        <span style="{{avatar}}">Н</span>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 15px; font-weight: 600">Ника</span>
+          <span style="font-size: 13px; color: {{t.mu}}">ждёт твоего хода</span>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: {{t.r}}; background: {{t.s1}}; border: {{t.bw}} solid {{t.ln}}; box-shadow: {{sz.panelShadow}}">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600">Атаки Charizard ex</h2>
+          <span style="font-size: 13px; color: {{t.mu}}">Энергии подключено: 3</span>
+        </div>
+        <sc-for list="{{attacks}}" as="a" hint-placeholder-count="2">
+          <button onClick="{{a.use}}" disabled="{{a.off}}" style="{{a.style}}">
+            <span style="display: flex; flex-direction: column; gap: 6px; text-align: left">
+              <span style="font-size: 15px; font-weight: 600">{{a.name}}</span>
+              <span style="display: flex; align-items: center; gap: 5px">
+                <sc-for list="{{a.cost}}" as="d" hint-placeholder-count="3">
+                  <span style="{{d.style}}"></span>
+                </sc-for>
+                <span style="{{a.noteStyle}}">{{a.note}}</span>
+              </span>
+            </span>
+            <span style="{{a.dmgStyle}}">{{a.dmg}}</span>
+          </button>
+        </sc-for>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px">
+          <button style="height: 48px; border-radius: {{t.rs}}; border: {{t.bw}} solid {{t.ln}}; background: transparent; color: {{t.tx}}; font-family: {{t.ff}}; font-size: 14px; font-weight: 600; cursor: pointer">Отступить</button>
+          <button style="height: 48px; border-radius: {{t.rs}}; border: none; background: {{t.ac}}; color: {{t.oa}}; font-family: {{t.ff}}; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: {{sz.btnShadow}}">Завершить ход</button>
+        </div>
+      </section>
+
+      <section style="padding: 20px; border-radius: {{t.r}}; background: {{t.s1}}; border: {{t.bw}} solid {{t.ln}}; box-shadow: {{sz.panelShadow}}">
+        <h2 style="margin: 0 0 6px; font-size: 15px; font-weight: 600">Журнал</h2>
+        <sc-for list="{{log}}" as="l" hint-placeholder-count="4">
+          <div style="{{l.row}}">
+            <span style="{{l.turnStyle}}">{{l.turn}}</span>
+            <span>{{l.text}}</span>
+          </div>
+        </sc-for>
+      </section>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Монохром","Светлая","Покемон","Ретро"],"default":"Монохром"},"$preview":{"width":1440,"height":1050}}'>
+const THEMES = {
+  'Монохром': { bg: '#0A0A0B', s1: '#121214', s2: '#1A1A1D', ln: '#26262B', tx: '#F4F4F5', mu: '#8E8E96', ac: '#F4F4F5', oa: '#0A0A0B', lk: '#F4F4F5', se: '#F4F4F5', os: '#0A0A0B', up: '#F4F4F5', dn: '#8E8E96', ch: '#F4F4F5', fill: 'rgba(244,244,245,.07)', hd: '#0A0A0B', oh: '#F4F4F5', hm: '#8E8E96', hl: '#26262B', hf: '#121214', hft: '#F4F4F5', ff: 'Onest, system-ui, sans-serif', fd: 'Onest, system-ui, sans-serif', dw: '600', ls: '-0.03em', z: 1, r: '14px', rs: '10px', bw: '1px', sh: '0 30px 60px rgba(0,0,0,.6)', cf: '#D5D8DE', hp: '#F4F4F5', bk: '#1A1A1D', bk2: '#26262B', retro: false },
+  'Светлая': { bg: '#F4F4F5', s1: '#FFFFFF', s2: '#EBEBED', ln: '#DEDEE2', tx: '#0A0A0B', mu: '#64646C', ac: '#0A0A0B', oa: '#FFFFFF', lk: '#0A0A0B', se: '#0A0A0B', os: '#FFFFFF', up: '#0A0A0B', dn: '#64646C', ch: '#0A0A0B', fill: 'rgba(10,10,11,.06)', hd: '#FFFFFF', oh: '#0A0A0B', hm: '#64646C', hl: '#DEDEE2', hf: '#F4F4F5', hft: '#0A0A0B', ff: 'Onest, system-ui, sans-serif', fd: 'Onest, system-ui, sans-serif', dw: '600', ls: '-0.03em', z: 1, r: '14px', rs: '10px', bw: '1px', sh: '0 24px 50px rgba(10,10,11,.16)', cf: '#D5D8DE', hp: '#0A0A0B', bk: '#E4E4E7', bk2: '#D4D4D8', retro: false },
+  'Покемон': { bg: '#F2F4F8', s1: '#FFFFFF', s2: '#E8ECF3', ln: '#D9DFE9', tx: '#14171F', mu: '#566070', ac: '#CC2D0E', oa: '#FFFFFF', lk: '#2366A8', se: '#FFCB05', os: '#1A1400', up: '#1F7A4D', dn: '#CC2D0E', ch: '#2366A8', fill: 'rgba(35,102,168,.10)', hd: '#CC2D0E', oh: '#FFFFFF', hm: '#FFFFFF', hl: '#B0260B', hf: '#FFFFFF', hft: '#14171F', ff: 'Rubik, system-ui, sans-serif', fd: 'Rubik, system-ui, sans-serif', dw: '700', ls: '-0.02em', z: 1, r: '16px', rs: '12px', bw: '1px', sh: '0 24px 48px rgba(20,23,31,.18)', cf: '#F2C935', hp: '#1F7A4D', bk: '#2366A8', bk2: '#1D5A96', retro: false },
+  'Ретро': { bg: '#8BAC0F', s1: '#9BBC0F', s2: '#8BAC0F', ln: '#0F380F', tx: '#0F380F', mu: '#0F380F', ac: '#0F380F', oa: '#9BBC0F', lk: '#0F380F', se: '#0F380F', os: '#9BBC0F', up: '#0F380F', dn: '#0F380F', ch: '#0F380F', fill: 'rgba(15,56,15,.12)', hd: '#0F380F', oh: '#9BBC0F', hm: '#9BBC0F', hl: '#0F380F', hf: '#9BBC0F', hft: '#0F380F', ff: 'Onest, system-ui, sans-serif', fd: "'Press Start 2P', monospace", dw: '400', ls: '0', z: 0.62, r: '0px', rs: '0px', bw: '2px', sh: '6px 6px 0 #306230', cf: '#0F380F', hp: '#0F380F', bk: '#306230', bk2: '#0F380F', retro: true }
+};
+const TYPES = { fire: ['#E57A4E', '#F7B892', '#D4532B'], water: ['#5494DA', '#A7CCF3', '#2F6CB5'], grass: ['#71B56B', '#BCE3A6', '#3F8C47'], electric: ['#E8C24A', '#FBE9A3', '#CFA21E'], psychic: ['#9D7CD8', '#D6C6F4', '#6A4BB3'], normal: ['#B4B8C1', '#E9EAEE', '#8B909A'], dark: ['#50545F', '#9095A1', '#2B2E36'] };
+function look(t, type, holo, extra) {
+  const c = t.retro ? ['#306230', '#9BBC0F', '#8BAC0F'] : TYPES[type];
+  const art = t.retro
+    ? (holo ? 'repeating-linear-gradient(45deg, #9BBC0F 0 4px, #8BAC0F 4px 8px)' : '#9BBC0F')
+    : (holo ? 'linear-gradient(150deg, ' + c[1] + ' 0%, rgba(255,255,255,.92) 46%, ' + c[2] + ' 100%)' : 'linear-gradient(160deg, ' + c[1] + ' 0%, ' + c[2] + ' 100%)');
+  return {
+    frame: 'position: relative; aspect-ratio: 63 / 88; border-radius: ' + (t.retro ? '0' : '6px') + '; background: ' + t.cf + (extra ? '; ' + extra : ''),
+    body: 'position: absolute; inset: 4.5%; overflow: hidden; border-radius: ' + (t.retro ? '0' : '3px') + '; background: ' + c[0],
+    art: 'position: absolute; left: 7%; right: 7%; top: 13%; height: 42%; display: flex; align-items: center; justify-content: center; border-radius: ' + (t.retro ? '0' : '2px') + '; background: ' + art
+  };
+}
+class Component extends DCLogic {
+  renderVals() {
+    const t = THEMES[this.props.theme] || THEMES['Монохром'];
+    const px = (n) => Math.round(n * t.z) + 'px';
+    const st = this.state || {};
+    const attacked = !!st.attacked;
+    const navBase = 'display: flex; align-items: center; height: 44px; padding: 0 12px; text-decoration: none; font-size: 14px; color: ' + t.oh + '; ';
+    const nav = { on: navBase + 'font-weight: 600; box-shadow: inset 0 -2px 0 ' + t.oh, off: navBase + 'font-weight: 500; color: ' + t.hm };
+    const rad = t.retro ? '0' : '5px';
+    const back = (extra) => ({
+      frame: 'position: relative; aspect-ratio: 63 / 88; border-radius: ' + rad + '; background: ' + t.cf + (extra ? '; ' + extra : ''),
+      body: 'position: absolute; inset: 5%; display: flex; align-items: center; justify-content: center; border-radius: ' + (t.retro ? '0' : '3px') + '; background: repeating-linear-gradient(45deg, ' + t.bk + ' 0 5px, ' + t.bk2 + ' 5px 10px)',
+      mark: 'display: flex; align-items: center; justify-content: center; width: 42%; aspect-ratio: 1 / 1; border-radius: ' + (t.retro ? '0' : '4px') + '; font-family: ' + t.fd + '; font-size: 11px; font-weight: 700; background: ' + t.cf + '; color: ' + t.bk2,
+      letter: 'B'
+    });
+    const slotStyle = 'aspect-ratio: 63 / 88; box-sizing: border-box; border-radius: ' + rad + '; border: ' + t.bw + ' dashed ' + t.ln;
+    const emptySlot = () => ({ frame: slotStyle, body: 'display: none', mark: 'display: none', letter: '' });
+    const prizes = (n) => Array.from({ length: 6 }, (_, i) => (i < n ? back() : emptySlot()));
+    const bench = (list) => list.map((type) => type
+      ? Object.assign(look(t, type, false), { full: true, empty: false, slot: '' })
+      : { full: false, empty: true, slot: slotStyle, frame: '', body: '', art: '' });
+    const oppHp = attacked ? 10 : 190;
+    const track = (w) => 'width: ' + w + 'px; height: 6px; overflow: hidden; border-radius: ' + (t.retro ? '0' : '3px') + '; background: ' + t.s2 + '; box-shadow: inset 0 0 0 ' + (t.retro ? '1px ' + t.ln : '0 transparent');
+    const hpFill = (hp, max) => 'height: 6px; width: ' + Math.round(hp / max * 100) + '%; background: ' + (hp / max < 0.25 ? t.dn : t.hp) + '; transition: width .6s ease';
+    const handTypes = [['fire', false], ['normal', false], ['fire', true], ['normal', false], ['electric', false], ['normal', false], ['fire', false]];
+    const hand = handTypes.map(([type, holo], i) => {
+      const sel = i === 2;
+      const off = i - 3;
+      const extra = 'position: absolute; width: 92px; left: calc(50% - 238px + ' + (i * 64) + 'px); top: ' + (18 + Math.abs(off) * 4 - (sel ? 16 : 0)) + 'px; transform: rotate(' + (off * 4) + 'deg); box-shadow: ' + (sel ? '0 0 0 3px ' + t.ac + ', ' : '') + (t.retro ? '3px 3px 0 #306230' : '0 10px 24px rgba(0,0,0,.35)');
+      return look(t, type, holo, extra);
+    });
+    const dot = (type) => ({ style: 'width: 12px; height: 12px; border-radius: 50%; display: block; background: ' + (t.retro ? '#306230' : TYPES[type][0]) + '; box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.18)' });
+    const atkBase = 'display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 68px; padding: 12px 16px; box-sizing: border-box; border-radius: ' + t.rs + '; background: ' + t.s2 + '; color: ' + t.tx + '; font-family: ' + t.ff + '; ';
+    const attacks = [
+      { name: 'Огненный вихрь', cost: ['fire', 'fire', 'normal'], dmg: '180', can: !attacked, note: attacked ? 'уже использована' : '' },
+      { name: 'Взрыв пламени', cost: ['fire', 'fire', 'fire', 'normal'], dmg: '330', can: false, note: 'нужна ещё 1 энергия' }
+    ].map((a) => ({
+      name: a.name, dmg: a.dmg, note: a.note,
+      off: !a.can,
+      cost: a.cost.map(dot),
+      use: () => { if (a.can && a.dmg === '180') this.setState({ attacked: true }); },
+      style: atkBase + (a.can ? 'cursor: pointer; border: 2px solid ' + t.ac : 'cursor: default; opacity: .55; border: ' + t.bw + ' solid ' + t.ln),
+      noteStyle: 'margin-left: 6px; font-size: 12px; color: ' + t.mu,
+      dmgStyle: 'font-family: ' + t.fd + '; font-weight: ' + t.dw + '; font-size: ' + px(24) + '; font-variant-numeric: tabular-nums'
+    }));
+    const logItems = (attacked ? [['Ход 7', 'Огненный вихрь: 180 урона по Blastoise ex']] : []).concat([
+      ['Ход 7', 'ты взял карту'],
+      ['Ход 6', 'Ника атаковала: 140 урона'],
+      ['Ход 6', 'Ника подключила энергию воды'],
+      ['Ход 5', 'ты выложил Charizard ex']
+    ]);
+    const log = logItems.map(([turn, text], i) => ({
+      turn, text,
+      row: 'display: flex; gap: 12px; padding: 10px 0; font-size: 14px; line-height: 1.4; border-top: ' + (i === 0 ? 'none' : t.bw + ' solid ' + t.ln) + (i === 0 && attacked ? '; font-weight: 600' : ''),
+      turnStyle: 'flex-shrink: 0; width: 48px; color: ' + t.mu + '; font-weight: 400; font-variant-numeric: tabular-nums'
+    }));
+    return {
+      t, nav, hand, attacks, log, attacked,
+      oppPrizes: prizes(4),
+      myPrizes: prizes(3),
+      oppBench: bench(['water', 'water', 'normal', '', '']),
+      myBench: bench(['fire', 'normal', 'fire', 'fire', '']),
+      pile: back(),
+      opp: look(t, 'water', true, attacked ? 'animation: binderHit .45s ease' : ''),
+      me: look(t, 'fire', true, 'box-shadow: ' + (t.retro ? '4px 4px 0 #306230' : '0 0 0 2px ' + t.ac + ', 0 14px 30px rgba(0,0,0,.35)')),
+      oppDiscard: look(t, 'water', false, 'opacity: .7'),
+      myDiscard: look(t, 'fire', false, 'opacity: .7'),
+      attached: [dot('fire'), dot('fire'), dot('normal')],
+      oppHpText: oppHp + ' / 330',
+      oppTrack: track(160), oppFill: hpFill(oppHp, 330),
+      myTrack: track(160), myFill: hpFill(330, 330),
+      floatStyle: 'position: absolute; left: calc(100% + 12px); top: 34%; font-family: ' + t.fd + '; font-weight: ' + t.dw + '; font-size: ' + px(30) + '; white-space: nowrap; color: ' + t.dn + '; animation: binderRise .5s ease-out both',
+      turnChip: 'height: 32px; display: flex; align-items: center; padding: 0 12px; border-radius: ' + (t.retro ? '0' : '8px') + '; font-size: 13px; font-weight: 600; background: ' + t.se + '; color: ' + t.os,
+      avatar: 'width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; background: ' + t.s2 + '; color: ' + t.tx + '; border: ' + t.bw + ' solid ' + t.ln,
+      sz: { logo: px(18), btnShadow: t.retro ? '4px 4px 0 #306230' : 'none', panelShadow: t.retro ? t.sh : 'none' }
+    };
+  }
+}
+</script>
+</body>
+</html>

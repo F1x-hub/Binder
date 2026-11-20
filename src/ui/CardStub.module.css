@@ -1,0 +1,105 @@
+.frame {
+  position: relative;
+  aspect-ratio: 63 / 88;
+  border-radius: var(--radius-card);
+  background: var(--card-frame);
+}
+
+.body {
+  position: absolute;
+  inset: 4.5%;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--card-base);
+}
+
+.body > span {
+  position: absolute;
+}
+
+.name {
+  left: 7%;
+  top: 4.5%;
+  width: 46%;
+  height: 5%;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.hp {
+  right: 7%;
+  top: 3.5%;
+  width: 12%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.art {
+  left: 7%;
+  right: 7%;
+  top: 13%;
+  height: 42%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  background: linear-gradient(160deg, var(--card-light) 0%, var(--card-deep) 100%);
+}
+
+.holo .art {
+  background: linear-gradient(150deg, var(--card-light) 0%, rgba(255, 255, 255, 0.92) 46%, var(--card-deep) 100%);
+}
+
+.orb {
+  width: 40%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.line {
+  left: 7%;
+  height: 3.5%;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.line1 {
+  top: 62%;
+  width: 78%;
+}
+
+.line2 {
+  top: 69%;
+  width: 56%;
+}
+
+.line3 {
+  top: 78%;
+  width: 70%;
+}
+
+.foot {
+  left: 7%;
+  bottom: 5%;
+  width: 26%;
+  height: 2.5%;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+/* Ретро: оттенки зелёного вместо цветов типов и никаких скруглений */
+:global([data-theme='retro']) .body {
+  border-radius: 0;
+  background: #306230;
+}
+
+:global([data-theme='retro']) .art {
+  border-radius: 0;
+  background: #9bbc0f;
+}
+
+:global([data-theme='retro']) .holo .art {
+  background: repeating-linear-gradient(45deg, #9bbc0f 0 4px, #8bac0f 4px 8px);
+}

@@ -1,0 +1,20 @@
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.name {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+}
+
+.popup .name {
+  font-size: round(calc(17px * var(--display-scale)), 1px);
+  letter-spacing: -0.01em;
+}
+
+.welcome .name,
+.page .name {
+  font-size: round(calc(18px * var(--display-scale)), 1px);
+}

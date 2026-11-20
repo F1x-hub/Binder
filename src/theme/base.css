@@ -1,0 +1,59 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Межстрочный интервал как в макетах: normal, а у абзацев свой */
+body {
+  margin: 0;
+  font-size: 14px;
+  line-height: normal;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* В шапках цвет кольца фокуса переопределяется через --focus-ring */
+:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: 2px;
+}
+
+/* Поп-ап расширения: размер из макетов */
+body.popup {
+  width: 380px;
+  height: 600px;
+  overflow: hidden;
+}

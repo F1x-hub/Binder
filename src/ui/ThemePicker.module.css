@@ -1,0 +1,92 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tile {
+  /* Цвета кольца берутся из темы окна, а не из темы превью */
+  --ring-gap: var(--bg);
+  --ring: var(--accent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-family: var(--font-body);
+}
+
+.preview {
+  position: relative;
+  display: block;
+  height: 56px;
+  overflow: hidden;
+  border-radius: var(--radius-inner);
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+
+.tile[aria-pressed='true'] .preview {
+  box-shadow:
+    0 0 0 2px var(--ring-gap),
+    0 0 0 4px var(--ring);
+}
+
+.preview > span {
+  position: absolute;
+  display: block;
+  border-radius: 3px;
+}
+
+.preview[data-theme='retro'] > span {
+  border-radius: 0;
+}
+
+.bar {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 10px;
+  background: var(--header);
+  border-bottom: 1px solid var(--header-line);
+}
+
+.preview > .bar {
+  border-radius: 0;
+}
+
+.line1 {
+  left: 7px;
+  top: 17px;
+  width: 52%;
+  height: 5px;
+  background: var(--text);
+}
+
+.line2 {
+  left: 7px;
+  top: 27px;
+  width: 34%;
+  height: 4px;
+  background: var(--muted);
+}
+
+.cta {
+  left: 7px;
+  right: 7px;
+  bottom: 7px;
+  height: 9px;
+  background: var(--accent);
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.labelOn {
+  font-weight: 600;
+}

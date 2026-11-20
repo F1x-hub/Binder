@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Binder: четыре темы</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Rubik:wght@400;500;600;700&amp;family=Press+Start+2P&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 1784px; height: 980px; box-sizing: border-box; padding: 48px 48px 40px; display: flex; flex-direction: column; gap: 40px; background: #161618; color: #F4F4F5; font-family: Onest, system-ui, sans-serif">
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <h1 style="margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.02em">Четыре темы Binder</h1>
+    <p style="margin: 0; font-size: 15px; color: #9B9BA3">Одна раскладка, разные характеры. Основная тема: Монохром.</p>
+  </div>
+  <div style="display: flex; gap: 56px">
+    <sc-for list="{{themes}}" as="th" hint-placeholder-count="4">
+      <div style="width: 380px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="font-size: 20px; font-weight: 600">{{th.name}}</span>
+          <sc-if value="{{th.main}}" hint-placeholder-val="{{ false }}">
+            <span style="padding: 3px 8px; border-radius: 6px; border: 1px solid #3A3A40; font-size: 12px; font-weight: 500; color: #C8C8CE">основная</span>
+          </sc-if>
+        </div>
+        <p style="margin: 0 0 8px; height: 42px; font-size: 14px; line-height: 1.5; color: #9B9BA3; text-wrap: pretty">{{th.desc}}</p>
+        <div style="width: 380px; height: 600px; overflow: hidden; border-radius: 14px; box-shadow: 0 0 0 1px #2E2E33, 0 24px 48px rgba(0,0,0,.45)">
+          <dc-import name="Main" theme="{{th.name}}" hint-size="380px,600px"></dc-import>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px">
+          <sc-for list="{{th.swatches}}" as="sw" hint-placeholder-count="5">
+            <div style="{{sw.style}}"></div>
+          </sc-for>
+          <span style="margin-left: auto; font-size: 13px; color: #9B9BA3">{{th.font}}</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1784,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const sw = (c) => ({ style: 'width: 32px; height: 32px; border-radius: 6px; background: ' + c + '; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14)' });
+    const themes = [
+      { name: 'Монохром', main: true, desc: 'Почти чёрный фон и белый акцент. Цвет на экране дают только сами карточки.', font: 'Onest', swatches: ['#0A0A0B', '#1A1A1D', '#26262B', '#8E8E96', '#F4F4F5'].map(sw) },
+      { name: 'Светлая', main: false, desc: 'Та же система для дня: светло-серый фон, белые панели, чёрный акцент.', font: 'Onest', swatches: ['#F4F4F5', '#FFFFFF', '#DEDEE2', '#64646C', '#0A0A0B'].map(sw) },
+      { name: 'Покемон', main: false, desc: 'Красная шапка, жёлтый для выбранного, синий для ссылок, мягкие углы.', font: 'Rubik', swatches: ['#CC2D0E', '#FFCB05', '#2366A8', '#F2F4F8', '#14171F'].map(sw) },
+      { name: 'Ретро', main: false, desc: 'Четыре оттенка зелёного карманной консоли, пиксельные заголовки, жёсткие тени.', font: 'Press Start 2P + Onest', swatches: ['#0F380F', '#306230', '#8BAC0F', '#9BBC0F'].map(sw) }
+    ];
+    return { themes };
+  }
+}
+</script>
+</body>
+</html>

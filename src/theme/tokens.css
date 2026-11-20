@@ -1,0 +1,184 @@
+/*
+ * Токены четырёх тем. Значения взяты из const THEMES в design/mockups/*.dc.html,
+ * в комментариях короткие имена оттуда. Тема включается атрибутом data-theme на <html>
+ * или на любом элементе внутри (так сделаны превью тем в настройках).
+ * Без атрибута действует Монохром.
+ */
+
+:root,
+[data-theme='mono'] {
+  color-scheme: dark;
+  --bg: #0a0a0b; /* bg */
+  --surface: #121214; /* s1 */
+  --surface-2: #1a1a1d; /* s2 */
+  --line: #26262b; /* ln */
+  --text: #f4f4f5; /* tx */
+  --muted: #8e8e96; /* mu */
+  --accent: #f4f4f5; /* ac: главные кнопки */
+  --on-accent: #0a0a0b; /* oa */
+  --link: #f4f4f5; /* lk */
+  --selected: #f4f4f5; /* se */
+  --on-selected: #0a0a0b; /* os */
+  --up: #f4f4f5; /* up: рост цены */
+  --down: #8e8e96; /* dn: падение цены */
+  --chart: #f4f4f5; /* ch */
+  --chart-fill: rgba(244, 244, 245, 0.07); /* fill */
+  --header: #0a0a0b; /* hd */
+  --on-header: #f4f4f5; /* oh */
+  --header-muted: #8e8e96; /* hm */
+  --header-line: #26262b; /* hl */
+  --header-field: #121214; /* hf: поле поиска в шапке */
+  --on-header-field: #f4f4f5; /* hft */
+  --font-body: Onest, system-ui, sans-serif; /* ff */
+  --font-display: Onest, system-ui, sans-serif; /* fd */
+  --display-weight: 600; /* dw */
+  --display-tracking: -0.03em; /* ls */
+  --display-scale: 1; /* z: масштаб крупного шрифта */
+  --radius-panel: 14px; /* r */
+  --radius-control: 10px; /* rs */
+  --border: 1px; /* bw */
+  --shadow: 0 30px 60px rgba(0, 0, 0, 0.6); /* sh */
+  --card-frame: #d5d8de; /* cf: рамка заглушки карты */
+  --hp: #f4f4f5; /* hp: полоса здоровья в бою */
+  --card-back: #1a1a1d; /* bk: рубашка карты */
+  --card-back-2: #26262b; /* bk2 */
+
+  /* В макетах эти значения зависят от флага retro */
+  --radius-inner: 8px;
+  --radius-card: 6px;
+  --button-shadow: none;
+  --panel-shadow: none;
+  --card-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --surface-2: #ebebed;
+  --line: #dedee2;
+  --text: #0a0a0b;
+  --muted: #64646c;
+  --accent: #0a0a0b;
+  --on-accent: #ffffff;
+  --link: #0a0a0b;
+  --selected: #0a0a0b;
+  --on-selected: #ffffff;
+  --up: #0a0a0b;
+  --down: #64646c;
+  --chart: #0a0a0b;
+  --chart-fill: rgba(10, 10, 11, 0.06);
+  --header: #ffffff;
+  --on-header: #0a0a0b;
+  --header-muted: #64646c;
+  --header-line: #dedee2;
+  --header-field: #f4f4f5;
+  --on-header-field: #0a0a0b;
+  --font-body: Onest, system-ui, sans-serif;
+  --font-display: Onest, system-ui, sans-serif;
+  --display-weight: 600;
+  --display-tracking: -0.03em;
+  --display-scale: 1;
+  --radius-panel: 14px;
+  --radius-control: 10px;
+  --border: 1px;
+  --shadow: 0 24px 50px rgba(10, 10, 11, 0.16);
+  --card-frame: #d5d8de;
+  --hp: #0a0a0b;
+  --card-back: #e4e4e7;
+  --card-back-2: #d4d4d8;
+
+  --radius-inner: 8px;
+  --radius-card: 6px;
+  --button-shadow: none;
+  --panel-shadow: none;
+  --card-shadow: 0 24px 50px rgba(10, 10, 11, 0.16);
+}
+
+[data-theme='poke'] {
+  color-scheme: light;
+  --bg: #f2f4f8;
+  --surface: #ffffff;
+  --surface-2: #e8ecf3;
+  --line: #d9dfe9;
+  --text: #14171f;
+  --muted: #566070;
+  --accent: #cc2d0e;
+  --on-accent: #ffffff;
+  --link: #2366a8;
+  --selected: #ffcb05;
+  --on-selected: #1a1400;
+  --up: #1f7a4d;
+  --down: #cc2d0e;
+  --chart: #2366a8;
+  --chart-fill: rgba(35, 102, 168, 0.1);
+  --header: #cc2d0e;
+  --on-header: #ffffff;
+  --header-muted: #ffffff;
+  --header-line: #b0260b;
+  --header-field: #ffffff;
+  --on-header-field: #14171f;
+  --font-body: Rubik, system-ui, sans-serif;
+  --font-display: Rubik, system-ui, sans-serif;
+  --display-weight: 700;
+  --display-tracking: -0.02em;
+  --display-scale: 1;
+  --radius-panel: 16px;
+  --radius-control: 12px;
+  --border: 1px;
+  --shadow: 0 24px 48px rgba(20, 23, 31, 0.18);
+  --card-frame: #f2c935;
+  --hp: #1f7a4d;
+  --card-back: #2366a8;
+  --card-back-2: #1d5a96;
+
+  --radius-inner: 8px;
+  --radius-card: 6px;
+  --button-shadow: none;
+  --panel-shadow: none;
+  --card-shadow: 0 24px 48px rgba(20, 23, 31, 0.18);
+}
+
+[data-theme='retro'] {
+  color-scheme: light;
+  --bg: #8bac0f;
+  --surface: #9bbc0f;
+  --surface-2: #8bac0f;
+  --line: #0f380f;
+  --text: #0f380f;
+  --muted: #0f380f;
+  --accent: #0f380f;
+  --on-accent: #9bbc0f;
+  --link: #0f380f;
+  --selected: #0f380f;
+  --on-selected: #9bbc0f;
+  --up: #0f380f;
+  --down: #0f380f;
+  --chart: #0f380f;
+  --chart-fill: rgba(15, 56, 15, 0.12);
+  --header: #0f380f;
+  --on-header: #9bbc0f;
+  --header-muted: #9bbc0f;
+  --header-line: #0f380f;
+  --header-field: #9bbc0f;
+  --on-header-field: #0f380f;
+  --font-body: Onest, system-ui, sans-serif;
+  --font-display: 'Press Start 2P', monospace;
+  --display-weight: 400;
+  --display-tracking: 0;
+  --display-scale: 0.62;
+  --radius-panel: 0px;
+  --radius-control: 0px;
+  --border: 2px;
+  --shadow: 6px 6px 0 #306230;
+  --card-frame: #0f380f;
+  --hp: #0f380f;
+  --card-back: #306230;
+  --card-back-2: #0f380f;
+
+  --radius-inner: 0px;
+  --radius-card: 0px;
+  --button-shadow: 4px 4px 0 #306230;
+  --panel-shadow: 6px 6px 0 #306230;
+  --card-shadow: 4px 4px 0 #306230;
+}

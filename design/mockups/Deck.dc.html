@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Binder: конструктор колоды</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Rubik:wght@400;500;600;700&amp;family=Press+Start+2P&amp;display=swap">
+<style>
+body{margin:0}
+input::placeholder{color:currentColor;opacity:.6}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: {{t.bg}}; color: {{t.tx}}; font-family: {{t.ff}}">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; min-height: 68px; padding: 10px 32px; box-sizing: border-box; background: {{t.hd}}; color: {{t.oh}}; border-bottom: {{t.bw}} solid {{t.hl}}">
+    <a href="Library.dc.html" style="display: flex; align-items: center; gap: 10px; color: {{t.oh}}; text-decoration: none">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="6" width="11" height="15" rx="2"></rect><path d="M8 3.6l8.6-.9a2 2 0 0 1 2.2 1.8l1.2 11.3a2 2 0 0 1-1.8 2.2l-2.2.2"></path></svg>
+      <span style="font-family: {{t.fd}}; font-weight: {{t.dw}}; font-size: {{sz.logo}}">Binder</span>
+    </a>
+    <nav aria-label="Разделы" style="display: flex; flex-wrap: wrap; gap: 4px">
+      <a href="Library.dc.html" style="{{nav.off}}">Альбом</a>
+      <a href="Deck.dc.html" aria-current="page" style="{{nav.on}}">Колоды</a>
+      <a href="Profile.dc.html" style="{{nav.off}}">Друзья</a>
+      <a href="Battle.dc.html" style="{{nav.off}}">Бой</a>
+    </nav>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+      <label style="display: flex; align-items: center; gap: 8px; width: 280px; max-width: 100%; height: 44px; padding: 0 14px; box-sizing: border-box; border-radius: {{t.rs}}; background: {{t.hf}}; color: {{t.hft}}; border: {{t.bw}} solid {{t.hl}}">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M20 20l-4.2-4.2"></path></svg>
+        <input aria-label="Поиск" placeholder="Поиск карточек и друзей" style="flex-grow: 1; min-width: 0; height: 100%; border: none; outline: none; background: transparent; color: {{t.hft}}; font-family: {{t.ff}}; font-size: 14px">
+      </label>
+      <a href="Profile.dc.html" aria-label="Мой профиль" style="width: 44px; height: 44px; flex-shrink: 0; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: {{t.hf}}; color: {{t.hft}}; border: {{t.bw}} solid {{t.hl}}">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.5"></circle><path d="M5 20c.8-3.4 3.6-5.2 7-5.2s6.2 1.8 7 5.2"></path></svg>
+      </a>
+    </div>
+  </header>
+
+  <main style="max-width: 1360px; margin: 0 auto; padding: 32px 32px 56px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px">
+    <section style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h1 style="margin: 0; font-family: {{t.fd}}; font-weight: {{t.dw}}; font-size: {{sz.h1}}; letter-spacing: {{t.ls}}; line-height: 1.2">Мои карточки</h1>
+          <span style="font-size: 14px; color: {{t.mu}}">В колоду можно взять только то, что есть в альбоме</span>
+        </div>
+        <div role="group" aria-label="Категория" style="margin-left: auto; display: flex; gap: 4px; padding: 3px; border-radius: {{t.rs}}; background: {{t.s2}}; border: {{t.bw}} solid {{t.ln}}">
+          <button aria-pressed="true" style="{{seg.on}}">Покемоны</button>
+          <button aria-pressed="false" style="{{seg.off}}">Тренеры</button>
+          <button aria-pressed="false" style="{{seg.off}}">Энергия</button>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+        <label style="display: flex; align-items: center; gap: 8px; flex: 1 1 280px; max-width: 420px; height: 44px; padding: 0 14px; box-sizing: border-box; border-radius: {{t.rs}}; background: {{t.s1}}; border: {{t.bw}} solid {{t.ln}}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M20 20l-4.2-4.2"></path></svg>
+          <input aria-label="Поиск по моим карточкам" placeholder="Найти в моих карточках" style="flex-grow: 1; min-width: 0; height: 100%; border: none; outline: none; background: transparent; color: {{t.tx}}; font-family: {{t.ff}}; font-size: 14px">
+        </label>
+        <label style="display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; cursor: pointer">
+          <input type="checkbox" style="width: 18px; height: 18px; margin: 0; accent-color: {{t.ac}}">
+          Показывать недостающие
+        </label>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr)); gap: 24px 16px">
+        <sc-for list="{{pool}}" as="c" hint-placeholder-count="12">
+          <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+            <div style="position: relative">
+              <div style="{{c.frame}}">
+                <div style="{{c.body}}">
+                  <div style="position: absolute; left: 7%; top: 4.5%; width: 46%; height: 5%; border-radius: 2px; background: rgba(0,0,0,.24)"></div>
+                  <div style="position: absolute; right: 7%; top: 3.5%; width: 12%; aspect-ratio: 1 / 1; border-radius: 50%; background: rgba(255,255,255,.65)"></div>
+                  <div style="{{c.art}}"><div style="width: 40%; aspect-ratio: 1 / 1; border-radius: 50%; background: rgba(255,255,255,.3)"></div></div>
+                  <div style="position: absolute; left: 7%; top: 62%; width: 78%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+                  <div style="position: absolute; left: 7%; top: 69%; width: 56%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+                  <div style="position: absolute; left: 7%; top: 78%; width: 70%; height: 3.5%; border-radius: 2px; background: rgba(0,0,0,.2)"></div>
+                  <div style="position: absolute; left: 7%; bottom: 5%; width: 26%; height: 2.5%; border-radius: 2px; background: rgba(0,0,0,.16)"></div>
+                </div>
+              </div>
+              <sc-if value="{{c.inDeck}}" hint-placeholder-val="{{ false }}">
+                <span style="{{c.badge}}">в колоде {{c.n}}</span>
+              </sc-if>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+              <span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.name}}</span>
+              <span style="{{c.haveStyle}}">есть {{c.have}}</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px">
+              <button aria-label="Убрать из колоды" onClick="{{c.remove}}" style="{{c.minusStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+              <span style="font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums">{{c.n}}</span>
+              <button aria-label="Добавить в колоду" onClick="{{c.add}}" style="{{c.plusStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <aside style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 18px; padding: 24px; box-sizing: border-box; border-radius: {{t.r}}; background: {{t.s1}}; border: {{t.bw}} solid {{t.ln}}; box-shadow: {{sz.panelShadow}}">
+      <div style="display: flex; align-items: center; gap: 8px">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <span style="font-size: 13px; color: {{t.mu}}">Колода</span>
+          <span style="font-family: {{t.fd}}; font-weight: {{t.dw}}; font-size: {{sz.deckName}}; letter-spacing: {{t.ls}}; line-height: 1.3">Огненный шторм</span>
+        </div>
+        <button aria-label="Переименовать колоду" style="margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: {{t.rs}}; background: transparent; color: {{t.tx}}; border: {{t.bw}} solid {{t.ln}}">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16z"></path></svg>
+        </button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: baseline; gap: 8px">
+          <span style="font-family: {{t.fd}}; font-weight: {{t.dw}}; font-size: {{sz.count}}; letter-spacing: {{t.ls}}; line-height: 1; font-variant-numeric: tabular-nums">{{total}}</span>
+          <span style="font-size: 16px; color: {{t.mu}}">из 60 карт</span>
+        </div>
+        <div style="{{track}}"><div style="{{fill}}"></div></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums">{{poke}}</span><span style="font-size: 13px; color: {{t.mu}}">покемоны</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 17px; font-weight: 600">30</span><span style="font-size: 13px; color: {{t.mu}}">тренеры</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 17px; font-weight: 600">12</span><span style="font-size: 13px; color: {{t.mu}}">энергия</span></div>
+      </div>
+
+      <div style="height: {{t.bw}}; background: {{t.ln}}"></div>
+
+      <div style="display: flex; flex-direction: column">
+        <sc-for list="{{list}}" as="r" hint-placeholder-count="6">
+          <div style="display: flex; align-items: center; gap: 10px; min-height: 34px; font-size: 14px">
+            <span style="{{r.qtyStyle}}">{{r.qty}} ×</span>
+            <span>{{r.name}}</span>
+          </div>
+        </sc-for>
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 34px; font-size: 14px; color: {{t.mu}}">Тренеры и энергия: 42 карты</div>
+      </div>
+
+      <div style="height: {{t.bw}}; background: {{t.ln}}"></div>
+
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <sc-for list="{{checks}}" as="k" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px; min-height: 32px; font-size: 14px">
+            <span style="{{k.iconStyle}}">{{k.icon}}</span>
+            <span>{{k.text}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <a href="Profile.dc.html" style="display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: {{t.rs}}; background: {{t.s2}}; border: {{t.bw}} solid {{t.ln}}; color: {{t.tx}}; text-decoration: none; font-size: 14px">
+        <span style="font-weight: 600">Не хватает Rare Candy ×2</span>
+        <span style="font-size: 13px; color: {{t.mu}}">Есть у Ники для обмена</span>
+      </a>
+
+      <sc-if value="{{ready}}" hint-placeholder-val="{{ false }}">
+        <a href="Battle.dc.html" style="display: flex; align-items: center; justify-content: center; height: 52px; border-radius: {{t.rs}}; background: {{t.ac}}; color: {{t.oa}}; font-size: 15px; font-weight: 600; text-decoration: none; box-shadow: {{sz.btnShadow}}">Найти соперника</a>
+      </sc-if>
+      <sc-if value="{{notReady}}" hint-placeholder-val="{{ true }}">
+        <button disabled="disabled" style="height: 52px; border-radius: {{t.rs}}; border: {{t.bw}} dashed {{t.ln}}; background: transparent; color: {{t.mu}}; font-family: {{t.ff}}; font-size: 15px; font-weight: 600">Добавь ещё {{left}}, чтобы играть</button>
+      </sc-if>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Монохром","Светлая","Покемон","Ретро"],"default":"Монохром"},"$preview":{"width":1440,"height":1010}}'>
+const THEMES = {
+  'Монохром': { bg: '#0A0A0B', s1: '#121214', s2: '#1A1A1D', ln: '#26262B', tx: '#F4F4F5', mu: '#8E8E96', ac: '#F4F4F5', oa: '#0A0A0B', lk: '#F4F4F5', se: '#F4F4F5', os: '#0A0A0B', up: '#F4F4F5', dn: '#8E8E96', ch: '#F4F4F5', fill: 'rgba(244,244,245,.07)', hd: '#0A0A0B', oh: '#F4F4F5', hm: '#8E8E96', hl: '#26262B', hf: '#121214', hft: '#F4F4F5', ff: 'Onest, system-ui, sans-serif', fd: 'Onest, system-ui, sans-serif', dw: '600', ls: '-0.03em', z: 1, r: '14px', rs: '10px', bw: '1px', sh: '0 30px 60px rgba(0,0,0,.6)', cf: '#D5D8DE', hp: '#F4F4F5', bk: '#1A1A1D', bk2: '#26262B', retro: false },
+  'Светлая': { bg: '#F4F4F5', s1: '#FFFFFF', s2: '#EBEBED', ln: '#DEDEE2', tx: '#0A0A0B', mu: '#64646C', ac: '#0A0A0B', oa: '#FFFFFF', lk: '#0A0A0B', se: '#0A0A0B', os: '#FFFFFF', up: '#0A0A0B', dn: '#64646C', ch: '#0A0A0B', fill: 'rgba(10,10,11,.06)', hd: '#FFFFFF', oh: '#0A0A0B', hm: '#64646C', hl: '#DEDEE2', hf: '#F4F4F5', hft: '#0A0A0B', ff: 'Onest, system-ui, sans-serif', fd: 'Onest, system-ui, sans-serif', dw: '600', ls: '-0.03em', z: 1, r: '14px', rs: '10px', bw: '1px', sh: '0 24px 50px rgba(10,10,11,.16)', cf: '#D5D8DE', hp: '#0A0A0B', bk: '#E4E4E7', bk2: '#D4D4D8', retro: false },
+  'Покемон': { bg: '#F2F4F8', s1: '#FFFFFF', s2: '#E8ECF3', ln: '#D9DFE9', tx: '#14171F', mu: '#566070', ac: '#CC2D0E', oa: '#FFFFFF', lk: '#2366A8', se: '#FFCB05', os: '#1A1400', up: '#1F7A4D', dn: '#CC2D0E', ch: '#2366A8', fill: 'rgba(35,102,168,.10)', hd: '#CC2D0E', oh: '#FFFFFF', hm: '#FFFFFF', hl: '#B0260B', hf: '#FFFFFF', hft: '#14171F', ff: 'Rubik, system-ui, sans-serif', fd: 'Rubik, system-ui, sans-serif', dw: '700', ls: '-0.02em', z: 1, r: '16px', rs: '12px', bw: '1px', sh: '0 24px 48px rgba(20,23,31,.18)', cf: '#F2C935', hp: '#1F7A4D', bk: '#2366A8', bk2: '#1D5A96', retro: false },
+  'Ретро': { bg: '#8BAC0F', s1: '#9BBC0F', s2: '#8BAC0F', ln: '#0F380F', tx: '#0F380F', mu: '#0F380F', ac: '#0F380F', oa: '#9BBC0F', lk: '#0F380F', se: '#0F380F', os: '#9BBC0F', up: '#0F380F', dn: '#0F380F', ch: '#0F380F', fill: 'rgba(15,56,15,.12)', hd: '#0F380F', oh: '#9BBC0F', hm: '#9BBC0F', hl: '#0F380F', hf: '#9BBC0F', hft: '#0F380F', ff: 'Onest, system-ui, sans-serif', fd: "'Press Start 2P', monospace", dw: '400', ls: '0', z: 0.62, r: '0px', rs: '0px', bw: '2px', sh: '6px 6px 0 #306230', cf: '#0F380F', hp: '#0F380F', bk: '#306230', bk2: '#0F380F', retro: true }
+};
+const TYPES = { fire: ['#E57A4E', '#F7B892', '#D4532B'], water: ['#5494DA', '#A7CCF3', '#2F6CB5'], grass: ['#71B56B', '#BCE3A6', '#3F8C47'], electric: ['#E8C24A', '#FBE9A3', '#CFA21E'], psychic: ['#9D7CD8', '#D6C6F4', '#6A4BB3'], normal: ['#B4B8C1', '#E9EAEE', '#8B909A'], dark: ['#50545F', '#9095A1', '#2B2E36'] };
+function look(t, type, holo, extra) {
+  const c = t.retro ? ['#306230', '#9BBC0F', '#8BAC0F'] : TYPES[type];
+  const art = t.retro
+    ? (holo ? 'repeating-linear-gradient(45deg, #9BBC0F 0 4px, #8BAC0F 4px 8px)' : '#9BBC0F')
+    : (holo ? 'linear-gradient(150deg, ' + c[1] + ' 0%, rgba(255,255,255,.92) 46%, ' + c[2] + ' 100%)' : 'linear-gradient(160deg, ' + c[1] + ' 0%, ' + c[2] + ' 100%)');
+  return {
+    frame: 'position: relative; aspect-ratio: 63 / 88; border-radius: ' + (t.retro ? '0' : '6px') + '; background: ' + t.cf + (extra ? '; ' + extra : ''),
+    body: 'position: absolute; inset: 4.5%; overflow: hidden; border-radius: ' + (t.retro ? '0' : '3px') + '; background: ' + c[0],
+    art: 'position: absolute; left: 7%; right: 7%; top: 13%; height: 42%; display: flex; align-items: center; justify-content: center; border-radius: ' + (t.retro ? '0' : '2px') + '; background: ' + art
+  };
+}
+const POOL = [
+  ['Charmander', 'fire', false, 4, 4], ['Charmeleon', 'fire', false, 3, 2], ['Charizard ex', 'fire', true, 2, 2],
+  ['Growlithe', 'fire', false, 2, 1], ['Arcanine', 'fire', false, 1, 1], ['Pidgey', 'normal', false, 3, 2],
+  ['Pidgeot ex', 'normal', true, 1, 0], ['Lapras ex', 'water', true, 1, 0], ['Gardevoir', 'psychic', false, 1, 0],
+  ['Raichu', 'electric', false, 2, 0], ['Bulbasaur', 'grass', false, 3, 0], ['Vaporeon', 'water', false, 1, 0]
+];
+class Component extends DCLogic {
+  renderVals() {
+    const t = THEMES[this.props.theme] || THEMES['Монохром'];
+    const px = (n) => Math.round(n * t.z) + 'px';
+    const st = this.state || {};
+    const counts = st.counts || POOL.reduce((m, p) => Object.assign(m, { [p[0]]: p[4] }), {});
+    const poke = POOL.reduce((sum, p) => sum + counts[p[0]], 0);
+    const total = 42 + poke;
+    const navBase = 'display: flex; align-items: center; height: 44px; padding: 0 12px; text-decoration: none; font-size: 14px; color: ' + t.oh + '; ';
+    const nav = { on: navBase + 'font-weight: 600; box-shadow: inset 0 -2px 0 ' + t.oh, off: navBase + 'font-weight: 500; color: ' + t.hm };
+    const segBase = 'height: 40px; padding: 0 14px; border: none; cursor: pointer; font-family: ' + t.ff + '; font-size: 13px; font-weight: 600; border-radius: ' + (t.retro ? '0' : '8px') + '; ';
+    const seg = { on: segBase + 'background: ' + t.se + '; color: ' + t.os, off: segBase + 'background: transparent; color: ' + t.mu };
+    const btn = (enabled) => 'width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: ' + t.rs + '; background: transparent; border: ' + t.bw + ' solid ' + t.ln + '; color: ' + (enabled ? t.tx : t.mu) + '; cursor: ' + (enabled ? 'pointer' : 'default') + '; opacity: ' + (enabled ? '1' : '.45');
+    const pool = POOL.map(([name, type, holo, have]) => {
+      const n = counts[name];
+      const canAdd = n < have && n < 4 && total < 60;
+      const canRemove = n > 0;
+      return Object.assign(look(t, type, holo, n === 0 ? 'opacity: .55' : ''), {
+        name, have, n, inDeck: n > 0,
+        add: () => { if (canAdd) this.setState({ counts: Object.assign({}, counts, { [name]: n + 1 }) }); },
+        remove: () => { if (canRemove) this.setState({ counts: Object.assign({}, counts, { [name]: n - 1 }) }); },
+        plusStyle: btn(canAdd),
+        minusStyle: btn(canRemove),
+        badge: 'position: absolute; left: 8px; top: 8px; height: 24px; display: flex; align-items: center; padding: 0 8px; border-radius: ' + (t.retro ? '0' : '6px') + '; font-size: 12px; font-weight: 600; background: ' + t.se + '; color: ' + t.os,
+        haveStyle: 'font-size: 13px; color: ' + t.mu
+      });
+    });
+    const list = POOL.filter((p) => counts[p[0]] > 0).map((p) => ({ qty: counts[p[0]], name: p[0], qtyStyle: 'width: 32px; color: ' + t.mu + '; font-variant-numeric: tabular-nums' }));
+    const ok = { icon: '✓', iconStyle: 'width: 18px; font-weight: 700; color: ' + t.up };
+    const warn = { icon: '!', iconStyle: 'width: 18px; font-weight: 700; color: ' + t.dn };
+    const checks = [
+      Object.assign({ text: 'Не больше 4 копий одной карты' }, ok),
+      Object.assign({ text: 'Есть базовые покемоны' }, ok),
+      Object.assign({ text: total === 60 ? 'Ровно 60 карт' : 'Не хватает ' + (60 - total) + ' до 60' }, total === 60 ? ok : warn)
+    ];
+    const left = 60 - total;
+    return {
+      t, nav, seg, pool, list, checks, total, poke,
+      ready: total === 60,
+      notReady: total !== 60,
+      left: left + ' ' + (left === 1 ? 'карту' : left < 5 ? 'карты' : 'карт'),
+      track: 'height: 6px; border-radius: ' + (t.retro ? '0' : '3px') + '; background: ' + t.s2 + '; box-shadow: ' + (t.retro ? 'inset 0 0 0 1px ' + t.ln : 'none'),
+      fill: 'height: 6px; width: ' + Math.round(total / 60 * 100) + '%; border-radius: ' + (t.retro ? '0' : '3px') + '; background: ' + t.ac,
+      sz: { logo: px(18), h1: px(28), deckName: px(22), count: px(48), btnShadow: t.retro ? '4px 4px 0 #306230' : 'none', panelShadow: t.retro ? t.sh : 'none' }
+    };
+  }
+}
+</script>
+</body>
+</html>
