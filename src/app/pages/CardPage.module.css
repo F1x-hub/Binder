@@ -549,3 +549,17 @@
   color: rgba(244, 244, 245, 0.8);
   text-align: center;
 }
+
+/* «Показать все» под ценами в грейде */
+.textButton {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--link);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}

@@ -9,6 +9,7 @@ import {
   type CardFacts,
   type Energy,
 } from '@/lib/card-facts';
+import { loadCardMarket, type GradedPrice, type MarketResult } from '@/lib/card-market';
 import { catalog } from '@/lib/catalog';
 import {
   CONDITIONS,
@@ -27,6 +28,7 @@ import { LANGUAGE_LABELS, htmlLang } from '@/lib/languages';
 import { displayNames } from '@/lib/names';
 import { japaneseCardText } from '@/lib/limitless';
 import { PERIOD_MONTHS, buildChart, loadPriceHistory, shortDate, type ChartPeriod, type PricePoint } from '@/lib/price-history';
+import { utcDay } from '@/lib/prices';
 import { removeThumb } from '@/lib/thumbnails';
 import { useCardViews, type CardView } from '@/lib/useCardViews';
 import { Avatar } from '@/ui/Avatar';
@@ -329,23 +331,31 @@ function percent(change: number): string {
   return `${sign} ${Math.abs(Math.round(change * 100))}%`.trim();
 }
 
-/** Цены и история цены. История копится в клубе с 20 ноября 2026, поэтому поначалу короткая. */
+/**
+ * Цены и история цены. История за год — из JustTCG (по ключам клуба); пока её нет,
+ * график строится по истории, которую клуб копит сам с 20 ноября 2026.
+ */
 function PricePanel({ view }: { view: CardView }) {
-  const [history, setHistory] = useState<PricePoint[] | null>(null);
+  const [clubHistory, setClubHistory] = useState<PricePoint[] | null>(null);
   const [period, setPeriod] = useState<ChartPeriod>('1М');
+  const market = useCardMarket(view);
 
   useEffect(() => {
     let active = true;
     void loadPriceHistory(binderDb(), view, PERIOD_MONTHS['1Г'])
       .catch(() => [])
-      .then((points) => active && setHistory(points));
+      .then((points) => active && setClubHistory(points));
     return () => {
       active = false;
     };
   }, [view.docId, view.price?.u, view.price?.e]);
 
+  const marketHistory = market?.market?.history ?? [];
+  const fromMarket = marketHistory.length >= 2;
+  const history = fromMarket ? marketHistory : clubHistory;
   const chart = history ? buildChart(history, period) : null;
   const monthChart = history ? buildChart(history, '1М') : null;
+  const monthChange = market?.market?.change30 ?? monthChart?.change ?? null;
   const price = view.price;
   const each = price?.u ?? price?.e ?? null;
   const currency = price?.u != null ? 'usd' : 'eur';
@@ -366,12 +376,12 @@ function PricePanel({ view }: { view: CardView }) {
           <span
             className={cx(
               styles.priceChange,
-              monthChart?.change == null ? styles.neutral : monthChart.change < 0 && styles.down,
+              monthChange == null ? styles.neutral : monthChange < 0 && styles.down,
             )}
           >
             {price
-              ? monthChart?.change != null
-                ? `${percent(monthChart.change)} за месяц`
+              ? monthChange != null
+                ? `${percent(monthChange)} за месяц`
                 : 'изменение появится через несколько дней'
               : unpricedReason}
           </span>
@@ -450,16 +460,130 @@ function PricePanel({ view }: { view: CardView }) {
               ? 'Загружаем историю…'
               : history.length === 1
                 ? `Пока одна точка: ${shortDate(history[0]!.day)}. Binder записывает цену каждый день, когда карту открывает кто-то из клуба, — график появится через несколько дней.`
-                : 'Истории пока нет: Binder начал записывать цены 20 ноября 2026 и копит их, когда карты открывают в клубе.'}
+                : 'Истории пока нет: Binder начал записывать цены 20 ноября 2026 и копит их, когда карты открывают в клубе.'}{' '}
+            {market && marketNote(market)}
           </p>
         )}
         <p className={styles.source}>
-          {view.lang === 'ja' ? 'Доллары — TCGplayer через JustTCG, евро — Cardmarket через TCGdex.' : 'TCGplayer и Cardmarket через TCGdex.'}{' '}
+          {fromMarket
+            ? 'История за год — TCGplayer через JustTCG, без грейда, Near Mint.'
+            : view.lang === 'ja'
+              ? 'Доллары — TCGplayer через JustTCG, евро — Cardmarket через TCGdex.'
+              : 'TCGplayer и Cardmarket через TCGdex.'}{' '}
           Обновляются раз в сутки.
+          {fromMarket && view.lang !== 'en' && view.catalog === 'en' ? ' Цены английской карты.' : ''}
         </p>
       </section>
+
+      <GradedPanel view={view} market={market} />
     </>
   );
+}
+
+/** Рынок карты из JustTCG: null — ещё загружается. */
+function useCardMarket(view: CardView): MarketResult | null {
+  const [market, setMarket] = useState<MarketResult | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setMarket(null);
+    void loadCardMarket(binderDb(), view)
+      .catch((): MarketResult => ({ market: null, day: null, problem: 'offline', until: null }))
+      .then((result) => active && setMarket(result));
+    return () => {
+      active = false;
+    };
+    // У японских карт ID в JustTCG появляется вместе с их ценой: тогда пробуем ещё раз
+  }, [view.docId, view.price?.u]);
+
+  return market;
+}
+
+const timeFormat = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+/** Почему из JustTCG нет свежих данных; пустая строка — объяснять нечего. */
+function marketNote(result: MarketResult): string {
+  switch (result.problem) {
+    case 'no-key':
+      return 'История за год и цены в грейде появятся, когда админ добавит ключ JustTCG.';
+    case 'invalid-key':
+      return 'Ключи JustTCG клуба не подошли: админ может проверить их на своей странице.';
+    case 'limit':
+      return result.until
+        ? `Запросы JustTCG на сегодня кончились на всех ключах клуба, снова с ${timeFormat.format(result.until)}.`
+        : 'Запросы JustTCG на сегодня кончились на всех ключах клуба.';
+    case 'offline':
+      return 'JustTCG сейчас не ответил, попробуем при следующем открытии.';
+    default:
+      return '';
+  }
+}
+
+const GRADED_LIMIT = 8;
+
+/** Цены в грейде: по продажам слабов за 90 дней из JustTCG. */
+function GradedPanel({ view, market }: { view: CardView; market: MarketResult | null }) {
+  const titleId = useId();
+  const [all, setAll] = useState(false);
+  if (market?.problem === 'unsupported') return null;
+
+  const graded = market?.market?.graded ?? [];
+  const shown = all ? graded : graded.slice(0, GRADED_LIMIT);
+  const stale = market?.day && market.day !== utcDay() ? shortDate(market.day) : null;
+
+  return (
+    <section className={styles.panel} aria-labelledby={titleId}>
+      <div className={styles.panelHead}>
+        <div>
+          <h2 id={titleId} className={styles.panelTitle}>
+            Цены в грейде
+          </h2>
+          <span className={styles.muted}>по продажам за последние 90 дней</span>
+        </div>
+      </div>
+      {market === null ? (
+        <p className={styles.empty}>Смотрим цены в грейде…</p>
+      ) : market.problem === 'not-found' ? (
+        <p className={styles.empty}>Этой карты нет в JustTCG, цен в грейде для неё нет.</p>
+      ) : !market.market ? (
+        <p className={styles.empty}>{marketNote(market) || 'Цен в грейде пока нет.'}</p>
+      ) : graded.length === 0 ? (
+        <p className={styles.empty}>Продаж этой карты в грейде за последние 90 дней не было.</p>
+      ) : (
+        <>
+          <div className={styles.prices}>
+            {shown.map((slab) => (
+              <div key={slab.label} className={styles.priceCell}>
+                <span className={styles.priceLabel}>{slab.label}</span>
+                <span className={styles.priceValue}>{formatCardPrice({ u: slab.price, e: null })}</span>
+                <span className={cx(styles.priceChange, styles.neutral)}>{slabNote(slab)}</span>
+              </div>
+            ))}
+          </div>
+          {graded.length > GRADED_LIMIT && (
+            <button type="button" className={styles.textButton} onClick={() => setAll((value) => !value)}>
+              {all ? 'Свернуть' : `Показать все: ${graded.length}`}
+            </button>
+          )}
+        </>
+      )}
+      <p className={styles.source}>
+        TCGplayer и магазины-партнёры через JustTCG, в долларах. Цена слаба — по его настоящим продажам, без пересчёта из цены без
+        грейда.
+        {stale ? ` Данные за ${stale}: ${marketNote(market!) || 'свежих пока нет.'}` : ''}
+        {view.lang !== 'en' && view.catalog === 'en' ? ' Цены английской карты.' : ''}
+      </p>
+    </section>
+  );
+}
+
+const SALE_FORMS: [string, string, string] = ['продажа', 'продажи', 'продаж'];
+
+function slabNote(slab: GradedPrice): string {
+  const date = slab.lastSale ? shortDate(new Date(slab.lastSale).toISOString().slice(0, 10)) : null;
+  if (!slab.current) return date ? `последняя продажа ${date}, давно` : 'продаж давно не было';
+  const sales = slab.sales90 && slab.sales90 > 1 ? countLabel(slab.sales90, SALE_FORMS) : null;
+  return [date ? `продажа ${date}` : null, sales].filter(Boolean).join(', ') || 'по продажам';
 }
 
 function costLabel(cost: Energy[]): string {

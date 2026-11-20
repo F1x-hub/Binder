@@ -20,6 +20,9 @@ export const STARTING_INVITES = 3;
 /** Сколько дней живёт код приглашения. Должно совпадать с firestore.rules. */
 export const INVITE_LIFETIME_DAYS = 14;
 
+/** Роль в клубе (src/lib/admin.ts); без поля role — обычный участник. */
+export type Role = 'admin' | 'user';
+
 /** Документ members/{uid}. */
 export type Member = {
   displayName: string;
@@ -31,6 +34,8 @@ export type Member = {
   lastInvite: string | null;
   /** Витрина: до шести ID документов своего альбома (src/lib/showcase.ts); поля нет, пока витрину не выбрали */
   showcase?: string[];
+  /** Роль: ставят в консоли Firebase или админ на своей странице; поля нет — обычный участник */
+  role?: Role;
 };
 
 /** Документ invites/{code}, код лежит в id документа. */

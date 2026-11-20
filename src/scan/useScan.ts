@@ -15,7 +15,7 @@ import { albumDocId } from '@/lib/languages';
 import { decide, type Candidate, type Decision, type DetectedCard } from '@/lib/matching';
 import { PhotoError, cropCard, preparePhoto } from '@/lib/photo';
 import { loadJapanesePrices, type JapaneseRef } from '@/lib/jp-prices';
-import { loadJusttcgKey } from '@/lib/justtcg';
+import { activeClubKeys } from '@/lib/club-keys';
 import { loadPrices, priceKey, type CardPrice } from '@/lib/prices';
 import type { CardDetail } from '@/lib/tcgdex';
 import { saveThumb } from '@/lib/thumbnails';
@@ -130,14 +130,14 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** Есть ли ключ JustTCG: без него у японских карт нет цены в долларах, и сканер об этом скажет */
+  /** Есть ли в клубе ключи JustTCG: без них у японских карт нет цены в долларах, и сканер об этом скажет */
   const [hasPriceKey, setHasPriceKey] = useState(false);
   const working = useRef(false);
 
   useEffect(() => {
     void loadDeepseekKey().then(setKey);
-    void loadJusttcgKey()
-      .then((stored) => setHasPriceKey(Boolean(stored)))
+    void activeClubKeys(binderDb())
+      .then((keys) => setHasPriceKey(keys.length > 0))
       .catch(() => undefined);
   }, []);
 

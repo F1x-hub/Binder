@@ -4,7 +4,6 @@ import { Link } from 'wouter';
 import { invitesLeftLabel } from '@/lib/format';
 import type { Member } from '@/lib/membership';
 import { DeepseekKeyField } from '@/scan/DeepseekKeyField';
-import { JusttcgKeyField } from '@/scan/JusttcgKeyField';
 import { memberSinceLabel } from '@/settings/account';
 import type { ThemeId } from '@/theme/themes';
 import { Avatar } from '@/ui/Avatar';
@@ -32,17 +31,15 @@ type SectionsProps = {
   onTheme: (id: ThemeId) => void;
 };
 
-/** Ключи DeepSeek и JustTCG, тема и «Мои фото карточек»: одни и те же в поп-апе и во вкладке. */
+/**
+ * Ключ DeepSeek, тема и «Мои фото карточек»: одни и те же в поп-апе и во вкладке.
+ * Ключи JustTCG общие для клуба, их добавляет админ на своей странице (src/app/pages/AdminPage.tsx).
+ */
 export function SettingsSections({ layout, theme, onTheme }: SectionsProps) {
   const themeTitle = useId();
   const photosTitle = useId();
 
-  const keys = (
-    <>
-      <DeepseekKeyField />
-      <JusttcgKeyField />
-    </>
-  );
+  const keys = <DeepseekKeyField />;
   const themes = <ThemePicker value={theme} onChange={onTheme} labelledBy={themeTitle} />;
   // Хранение фото ещё не сделано: выбор заблокирован на «Не хранить»
   const photos = (
@@ -79,7 +76,7 @@ export function SettingsSections({ layout, theme, onTheme }: SectionsProps) {
 
   return (
     <div className={styles.panel}>
-      <PageRow title="Ключи" text="DeepSeek распознаёт карты на фото и оценивает их состояние. JustTCG даёт цены японских карт в долларах.">
+      <PageRow title="Ключ DeepSeek" text="DeepSeek распознаёт карты на фото и оценивает их состояние. Ключи для цен JustTCG общие для клуба, их добавляет админ.">
         {keys}
       </PageRow>
       <PageRow title="Тема" titleId={themeTitle} text="Меняется сразу и во вкладке, и в поп-апе.">

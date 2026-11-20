@@ -203,3 +203,21 @@ export function PencilIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function ChevronUpIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 14.5l6-6 6 6" />
+    </Svg>
+  );
+}
+
+/** Страница админа в меню аккаунта */
+export function ShieldIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3.5l7 2.6v5.6c0 4.3-2.9 7.6-7 8.8-4.1-1.2-7-4.5-7-8.8V6.1z" />
+      <path d="M9 12l2.2 2.2L15.5 10" />
+    </Svg>
+  );
+}

@@ -4,7 +4,10 @@ rules_version = '2';
 // Клуб закрытый: данные видят только участники (документ members/{uid}).
 // Вступить можно только по одноразовому коду из invites/{code}: код гасится и участник
 // создаётся одной пакетной записью, правила сверяют обе половины через get/getAfter.
-// Роли админа нет: участников удаляют и коды без лимита выдают в консоли Firebase.
+// Роль участника — поле role в members/{uid}: 'admin' или 'user', без поля — обычный участник.
+// Первого админа ставят в консоли Firebase, дальше роли других участников меняет админ.
+// Админ меняет ключи JustTCG клуба (config/justtcg), роли и счётчик приглашений участников
+// и может убрать участника из клуба.
 // Тесты: tests/rules (npm run test:rules).
 
 service cloud.firestore {
@@ -24,6 +27,11 @@ service cloud.firestore {
 
     function isMember() {
       return signedIn() && exists(memberPath(request.auth.uid));
+    }
+
+    // Админ — участник с role == 'admin'; убранный из клуба админ ничего не может
+    function isAdmin() {
+      return isMember() && get(memberPath(request.auth.uid)).data.get('role', 'user') == 'admin';
     }
 
     // 8 символов без 0/O/1/I/L, вид XXXX-XXXX (src/lib/invite-code.ts)
@@ -65,11 +73,32 @@ service cloud.firestore {
         && request.resource.data.invitedBy == get(invitePath(request.resource.data.inviteCode)).data.createdBy;
 
       // Имя и фото меняются свободно, счётчик приглашений — только вместе с выпуском кода,
-      // витрина — отдельной записью
-      allow update: if signedIn() && request.auth.uid == uid
-        && (updatesProfile() || issuesInvite(uid) || updatesShowcase());
+      // витрина — отдельной записью. Роль себе поставить нельзя: её нет ни в одном списке полей.
+      // Админ может поменять счётчик приглашений участника и роль другого участника.
+      allow update: if (signedIn() && request.auth.uid == uid
+        && (updatesProfile() || issuesInvite(uid) || updatesShowcase()))
+        || adminSetsInvites()
+        || adminSetsRole(uid);
 
-      allow delete: if false;
+      // Убрать участника может админ, но не себя: иначе он потерял бы и доступ, и роль
+      allow delete: if isAdmin() && request.auth.uid != uid;
+
+      // Админ выдаёт приглашения: целое от 0 до 99 (MAX_INVITES в src/lib/admin.ts)
+      function adminSetsInvites() {
+        return isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['invitesLeft'])
+          && request.resource.data.invitesLeft is int
+          && request.resource.data.invitesLeft >= 0
+          && request.resource.data.invitesLeft <= 99;
+      }
+
+      // Админ меняет роль другого участника; свою — нет, чтобы клуб случайно не остался без админа
+      function adminSetsRole(uid) {
+        return isAdmin()
+          && request.auth.uid != uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+          && request.resource.data.role in ['admin', 'user'];
+      }
 
       function updatesProfile() {
         return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL'])
@@ -241,6 +270,50 @@ service cloud.firestore {
         allow read: if isMember();
         allow create, update: if isMember() && month.matches('^[0-9]{4}-[0-9]{2}$');
         allow delete: if false;
+      }
+    }
+
+    // Настройки клуба. Пока одна: config/justtcg — ключи JustTCG, общие для всех участников.
+    // Читают все участники (запросы к JustTCG идут из их браузеров), меняет только админ.
+    // Ключи по порядку: запросы идут с первого включённого ключа, у которого не кончился лимит.
+    match /config/{name} {
+      allow get: if isMember() && name == 'justtcg';
+      allow list: if false;
+      allow create, update: if isAdmin() && name == 'justtcg' && validJusttcgConfig(request.resource.data);
+      allow delete: if isAdmin();
+
+      // До 10 ключей (MAX_CLUB_KEYS в src/lib/club-keys.ts). Циклов в правилах нет,
+      // поэтому каждый из десяти элементов проверяется отдельно.
+      function validJusttcgConfig(data) {
+        let items = data.items;
+        return data.keys().hasOnly(['items', 'updatedAt', 'updatedBy'])
+          && data.keys().hasAll(['items', 'updatedAt', 'updatedBy'])
+          && data.updatedAt == request.time
+          && data.updatedBy == request.auth.uid
+          && items is list
+          && items.size() <= 10
+          && (items.size() < 1 || validClubKey(items[0]))
+          && (items.size() < 2 || validClubKey(items[1]))
+          && (items.size() < 3 || validClubKey(items[2]))
+          && (items.size() < 4 || validClubKey(items[3]))
+          && (items.size() < 5 || validClubKey(items[4]))
+          && (items.size() < 6 || validClubKey(items[5]))
+          && (items.size() < 7 || validClubKey(items[6]))
+          && (items.size() < 8 || validClubKey(items[7]))
+          && (items.size() < 9 || validClubKey(items[8]))
+          && (items.size() < 10 || validClubKey(items[9]));
+      }
+
+      function validClubKey(item) {
+        return item is map
+          && item.keys().hasOnly(['key', 'label', 'enabled', 'addedAt'])
+          && item.keys().hasAll(['key', 'label', 'enabled', 'addedAt'])
+          && item.key is string
+          && item.key.matches('^[A-Za-z0-9_-]{8,200}$')
+          && item.label is string
+          && item.label.size() <= 40
+          && item.enabled is bool
+          && item.addedAt is timestamp;
       }
     }
 

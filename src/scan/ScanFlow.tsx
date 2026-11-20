@@ -231,8 +231,8 @@ function priceNote(item: ScanItem, hasPriceKey: boolean): string {
   if (!item.pick) return 'Цены нет: карты нет в базе';
   if (item.pick.approximate) return 'Цены нет: это похожая карта, а не твоя';
   if (!item.price || (item.price.u === null && item.price.e === null)) {
-    // Доллары японских карт берутся из JustTCG, а ключ вводит сам участник
-    return item.pick.lang === 'ja' && !hasPriceKey ? 'Цена в долларах — с ключом JustTCG в настройках' : 'цены пока нет';
+    // Доллары японских карт берутся из JustTCG по ключам клуба, их добавляет админ
+    return item.pick.lang === 'ja' && !hasPriceKey ? 'Цена в долларах появится, когда админ добавит ключ JustTCG' : 'цены пока нет';
   }
   if (item.pick.lang === 'en' && item.detected.language !== 'en') return 'без грейда, цена английской';
   return 'без грейда';

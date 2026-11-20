@@ -1,6 +1,7 @@
 import { Redirect, Route, Router, Switch } from 'wouter';
 import { useHashLocation } from 'wouter/use-hash-location';
 import { AuthGate } from '@/app/AuthGate';
+import { AdminPage } from '@/app/pages/AdminPage';
 import { Battle } from '@/app/pages/Battle';
 import { CardPage } from '@/app/pages/CardPage';
 import { DeckBuilder } from '@/app/pages/DeckBuilder';
@@ -34,6 +35,7 @@ export function AppShell() {
               <Route path="/decks/:id" component={DeckBuilder} />
               <Route path="/battle" component={Battle} />
               <Route path="/settings" component={SettingsPage} />
+              <Route path="/admin" component={AdminPage} />
               <Route>
                 <Redirect to="/library" />
               </Route>

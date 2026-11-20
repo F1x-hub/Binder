@@ -2,12 +2,12 @@ import { doc, getDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import {
   JusttcgError,
   findJusttcgCard,
-  loadJusttcgKey,
   pickPrice,
   refreshJusttcgCards,
   type Printing,
   type PrintingPrices,
 } from '@/lib/justtcg';
+import { activeClubKeys } from '@/lib/club-keys';
 import { cacheGet, cachePut } from '@/lib/kv-cache';
 import { namesMatch, normalizeNumber } from '@/lib/matching';
 import { utcDay } from '@/lib/prices';
@@ -59,7 +59,7 @@ type LocalCache = { day: string; cards: Record<string, StoredJapanesePrice> };
  * в общий кэш и в историю prices/jt_{КОД}/months/{ГГГГ-ММ}. Без ключа видна последняя
  * известная цена, а если JustTCG не ответил — вчерашняя.
  */
-async function setPrices(db: Firestore, apiKey: string, setCode: string, refs: JapaneseRef[], today: string) {
+async function setPrices(db: Firestore, apiKeys: string[], setCode: string, refs: JapaneseRef[], today: string) {
   const docId = jpPriceDocId(setCode);
   const localKey = `prices:${docId}`;
   const numbers = [...new Set(refs.map((ref) => normalizeNumber(ref.number)))];
@@ -70,13 +70,13 @@ async function setPrices(db: Firestore, apiKey: string, setCode: string, refs: J
   const known = { ...(((await getDoc(sharedRef)).data()?.cards ?? {}) as Record<string, StoredJapanesePrice>) };
   const stale = numbers.filter((number) => known[number]?.d !== today);
 
-  if (stale.length > 0 && apiKey) {
+  if (stale.length > 0 && apiKeys.length > 0) {
     const fresh: Record<string, StoredJapanesePrice> = {};
     try {
       const withId = stale.filter((number) => known[number]?.j);
       if (withId.length > 0) {
         const prices = await refreshJusttcgCards(
-          apiKey,
+          apiKeys,
           withId.map((number) => known[number]!.j!),
         );
         for (const number of withId) {
@@ -88,7 +88,7 @@ async function setPrices(db: Firestore, apiKey: string, setCode: string, refs: J
       for (const number of stale.filter((item) => !known[item]?.j)) {
         const ref = refs.find((item) => normalizeNumber(item.number) === number)!;
         const englishName = ref.englishName ?? (await ref.resolveEnglishName?.().catch(() => null)) ?? null;
-        const found = await findJusttcgCard(apiKey, setCode, ref.number, { englishName, total: ref.total });
+        const found = await findJusttcgCard(apiKeys, setCode, ref.number, { englishName, total: ref.total });
         fresh[number] = found
           ? { d: today, j: found.cardId, n: found.name, v: found.prices }
           : { d: today, j: null, n: null, v: {} };
@@ -121,7 +121,7 @@ export async function loadJapanesePrices(db: Firestore, refs: JapaneseRef[]): Pr
   const result = new Map<string, number>();
   if (refs.length === 0) return result;
   const today = utcDay();
-  const apiKey = await loadJusttcgKey().catch(() => '');
+  const apiKeys = await activeClubKeys(db);
   const bySet = new Map<string, JapaneseRef[]>();
   for (const ref of refs) {
     const code = ref.setCode.trim().toUpperCase();
@@ -129,7 +129,7 @@ export async function loadJapanesePrices(db: Firestore, refs: JapaneseRef[]): Pr
   }
   await Promise.all(
     [...bySet].map(async ([code, list]) => {
-      const cards = await setPrices(db, apiKey, code, list, today).catch((error: unknown) => {
+      const cards = await setPrices(db, apiKeys, code, list, today).catch((error: unknown) => {
         console.warn('[binder] цены японских карт недоступны', error);
         return {} as Record<string, StoredJapanesePrice>;
       });
@@ -140,4 +140,23 @@ export async function loadJapanesePrices(db: Firestore, refs: JapaneseRef[]): Pr
     }),
   );
   return result;
+}
+
+/**
+ * ID японской карты в JustTCG для страницы карточки: из кэша браузера, иначе из общего кэша
+ * (одно чтение). Ищет карту loadJapanesePrices, когда показывает её цену; здесь поиска нет.
+ * У карты, добавленной как есть, ID берётся, только если её английское имя совпало.
+ */
+export async function japaneseMarketId(db: Firestore, ref: JapaneseRef): Promise<string | null> {
+  const docId = jpPriceDocId(ref.setCode);
+  const number = normalizeNumber(ref.number);
+  const local = await cacheGet<LocalCache>(`prices:${docId}`, Number.POSITIVE_INFINITY).catch(() => null);
+  let stored = local?.cards[number];
+  if (!stored?.j) {
+    const shared = ((await getDoc(doc(db, 'prices', docId))).data()?.cards ?? {}) as Record<string, StoredJapanesePrice>;
+    stored = shared[number];
+  }
+  if (!stored?.j) return null;
+  if (ref.verifyName && !(ref.englishName && stored.n && namesMatch(ref.englishName, stored.n) >= 0.8)) return null;
+  return stored.j;
 }

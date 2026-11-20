@@ -2,12 +2,13 @@ import type { User } from 'firebase/auth/web-extension';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import { Link, useLocation } from 'wouter';
 import { HeaderSearch } from '@/app/HeaderSearch';
+import { useIsAdmin } from '@/lib/admin';
 import { useAuth } from '@/lib/auth-state';
 import { leaveBinder } from '@/settings/leave';
 import { Avatar } from '@/ui/Avatar';
 import { Brand } from '@/ui/Brand';
 import { cx } from '@/ui/cx';
-import { ChevronDownIcon, SignOutIcon, SlidersIcon, UserIcon } from '@/ui/Icons';
+import { ChevronDownIcon, ShieldIcon, SignOutIcon, SlidersIcon, UserIcon } from '@/ui/Icons';
 import { menuFocusTarget } from '@/ui/menu-keys';
 import styles from './PageHeader.module.css';
 
@@ -60,7 +61,7 @@ function menuItems(group: HTMLElement | null): HTMLElement[] {
 }
 
 /**
- * Меню аккаунта: аватар в шапке открывает «Мой профиль», «Настройки» и «Выйти».
+ * Меню аккаунта: аватар в шапке открывает «Мой профиль», «Настройки», у админа — «Админ», и «Выйти».
  * Открывает его сам браузер: кнопка-вызыватель (commandfor + toggle-popover) и popover="auto",
  * поэтому Esc, клик мимо меню и возврат фокуса на кнопку работают без своего кода.
  * Свой код: вход в меню с клавиатуры, Home/End, закрытие при уходе фокуса и после выбора пункта.
@@ -74,6 +75,7 @@ function AccountMenu({ user, location }: { user: User; location: string }) {
   // Открыли с клавиатуры (Enter, пробел, стрелка вниз): фокус сразу на первый пункт
   const enterOnOpen = useRef(false);
   const [open, setOpen] = useState(false);
+  const admin = useIsAdmin(user.uid);
   const name = user.displayName || user.email || 'Участник';
 
   useEffect(() => {
@@ -204,6 +206,17 @@ function AccountMenu({ user, location }: { user: User; location: string }) {
             <SlidersIcon size={18} />
             Настройки
           </Link>
+          {admin && (
+            <Link
+              href="/admin"
+              {...itemProps}
+              aria-current={location === '/admin' ? 'page' : undefined}
+              onClick={(event: MouseEvent) => close(event.detail > 0)}
+            >
+              <ShieldIcon size={18} />
+              Админ
+            </Link>
+          )}
           <hr className={styles.separator} />
           <button
             type="button"
