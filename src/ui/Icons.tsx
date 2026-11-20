@@ -56,6 +56,14 @@ export function BackIcon(props: IconProps) {
   );
 }
 
+export function ForwardIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9 18l6-6-6-6" />
+    </Svg>
+  );
+}
+
 export function ScanIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -161,11 +169,37 @@ export function CopyIcon(props: IconProps) {
   );
 }
 
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 9.5l6 6 6-6" />
+    </Svg>
+  );
+}
+
+export function SignOutIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" />
+      <path d="M15 8l4 4-4 4M19 12H9.5" />
+    </Svg>
+  );
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <circle cx="11" cy="11" r="6.5" />
       <path d="M20 20l-4.2-4.2" />
+    </Svg>
+  );
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 20l1-4.2L15.6 5.2a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L8.2 19z" />
+      <path d="M13.5 7.3l3.2 3.2" />
     </Svg>
   );
 }

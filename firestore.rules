@@ -64,8 +64,10 @@ service cloud.firestore {
         && redeemsInvite(request.resource.data.inviteCode, uid)
         && request.resource.data.invitedBy == get(invitePath(request.resource.data.inviteCode)).data.createdBy;
 
-      // Имя и фото меняются свободно, счётчик приглашений — только вместе с выпуском кода
-      allow update: if signedIn() && request.auth.uid == uid && (updatesProfile() || issuesInvite(uid));
+      // Имя и фото меняются свободно, счётчик приглашений — только вместе с выпуском кода,
+      // витрина — отдельной записью
+      allow update: if signedIn() && request.auth.uid == uid
+        && (updatesProfile() || issuesInvite(uid) || updatesShowcase());
 
       allow delete: if false;
 
@@ -83,6 +85,22 @@ service cloud.firestore {
           && validCode(code)
           && !exists(invitePath(code))
           && getAfter(invitePath(code)).data.createdBy == uid;
+      }
+
+      // Витрина: до шести разных ID документов своего альбома (MAX_SHOWCASE в src/lib/showcase.ts).
+      // Циклов в правилах нет, поэтому каждый из шести элементов проверяется отдельно.
+      function updatesShowcase() {
+        let items = request.resource.data.showcase;
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['showcase'])
+          && items is list
+          && items.size() <= 6
+          && items.toSet().size() == items.size()
+          && (items.size() < 1 || validId(items[0], 60))
+          && (items.size() < 2 || validId(items[1], 60))
+          && (items.size() < 3 || validId(items[2], 60))
+          && (items.size() < 4 || validId(items[3], 60))
+          && (items.size() < 5 || validId(items[4], 60))
+          && (items.size() < 6 || validId(items[5], 60));
       }
 
       // Альбом участника: ссылка на карту в TCGdex, сколько копий, вариант печати и язык карты.
@@ -153,6 +171,52 @@ service cloud.firestore {
 
         function validText(value, max, nullable) {
           return (nullable && value == null) || (value is string && value.size() > 0 && value.size() <= max);
+        }
+      }
+
+      // Колоды участника: имя и состав — ID документа альбома → сколько копий в колоде.
+      // Колоды друзей видны всем участникам, менять свои может только хозяин.
+      // Правила проверяют только форму (DECK_LIMITS в src/lib/decks.ts): у записи до 60 копий,
+      // а не до 4, потому что базовой энергии одной печати обычно больше четырёх. Правила игры
+      // и «не больше, чем в альбоме» проверяет приложение (src/lib/deck-rules.ts): колода
+      // с нарушением хранится, но считается неготовой.
+      match /decks/{deckId} {
+        allow read: if isMember();
+
+        allow create: if isDeckOwner()
+          && validId(deckId, 40)
+          && request.resource.data.keys().hasOnly(['name', 'cards', 'createdAt', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['name', 'cards', 'createdAt', 'updatedAt'])
+          && validDeckName(request.resource.data.name)
+          && validDeckCards(request.resource.data.cards)
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time;
+
+        allow update: if isDeckOwner()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'cards', 'updatedAt'])
+          && validDeckName(request.resource.data.name)
+          && validDeckCards(request.resource.data.cards)
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if isDeckOwner();
+
+        function isDeckOwner() {
+          return signedIn() && request.auth.uid == uid && isMember();
+        }
+
+        function validDeckName(name) {
+          return name is string && name.size() > 0 && name.size() <= 60;
+        }
+
+        // Не больше 60 разных карт, у каждой целое число копий от 1 до 60.
+        // Циклов в правилах нет: значения сверяются со списком допустимых чисел.
+        function validDeckCards(cards) {
+          return cards is map
+            && cards.size() <= 60
+            && cards.values().hasOnly([
+              1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+              21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+              41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]);
         }
       }
     }

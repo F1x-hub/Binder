@@ -29,6 +29,8 @@ export type Member = {
   inviteCode: string | null;
   invitesLeft: number;
   lastInvite: string | null;
+  /** Витрина: до шести ID документов своего альбома (src/lib/showcase.ts); поля нет, пока витрину не выбрали */
+  showcase?: string[];
 };
 
 /** Документ invites/{code}, код лежит в id документа. */
