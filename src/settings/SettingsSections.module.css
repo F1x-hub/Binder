@@ -1,0 +1,212 @@
+/* ---------- Поп-ап: колонка по макету PopupSettings ---------- */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.photos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.photos .title {
+  margin-bottom: 2px;
+}
+
+.radios {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.radio input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.account {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.accountName,
+.accountNote,
+.personName,
+.personEmail {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.accountName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.accountNote {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.signOut {
+  margin-left: auto;
+}
+
+/* ---------- Вкладка: панель со строками «заголовок слева, поля справа» ---------- */
+
+.panel {
+  container-type: inline-size;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+/* Кольцо выбранной темы отделяется от плитки цветом фона под ней, а здесь фон — панель */
+.panel button[aria-pressed] {
+  --ring-gap: var(--surface);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: 16px 40px;
+  padding: 24px;
+}
+
+.row + .row {
+  border-top: var(--border) solid var(--line);
+}
+
+/* Узкая вкладка: заголовок строки над полями */
+@container (width < 700px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rowHead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rowTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.rowText {
+  max-width: 40ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.rowBody {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  max-width: 560px;
+}
+
+.accountPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.personName {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.personEmail {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.facts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--border) solid var(--line);
+}
+
+.facts li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  border-bottom: var(--border) solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.factLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--link);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.factLink:hover {
+  text-decoration: underline;
+}
+
+/* Вторичная кнопка: рамка вместо заливки, чтобы выход не спорил с главными действиями */
+.accountPanel .signOutPage {
+  align-self: flex-start;
+  padding: 0 16px;
+  border: var(--border) solid var(--line);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--button-shadow);
+}
+
+.accountPanel .signOutPage:hover {
+  background: var(--surface-2);
+}

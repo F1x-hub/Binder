@@ -79,15 +79,180 @@
   font-size: 14px;
 }
 
-.profile {
-  width: 44px;
-  height: 44px;
+/* ---------- Меню аккаунта ---------- */
+
+/* Аватар и стрелка: видно, что кнопка открывает меню */
+.trigger {
+  anchor-name: --binder-account-menu;
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 50%;
+  gap: 4px;
+  height: 44px;
+  padding: 0 6px 0 4px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--on-header);
+}
+
+.trigger:hover,
+.trigger[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--on-header) 14%, transparent);
+}
+
+/* Аватар без фото — значок на цвете поля шапки, как поле поиска рядом */
+.trigger > span:first-child {
   background: var(--header-field);
   color: var(--on-header-field);
-  border: var(--border) solid var(--header-line);
+  border-color: var(--header-line);
+}
+
+.trigger > svg {
+  transition: rotate 0.15s ease;
+}
+
+.trigger[aria-expanded='true'] > svg {
+  rotate: 180deg;
+}
+
+.menuPlaceholder {
+  width: 66px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+/* Меню в верхнем слое (popover), под кнопкой и по её правому краю; у края окна переворачивается */
+.menu {
+  /* Меню — потомок шапки по DOM и унаследовало бы её цвета и кольцо фокуса */
+  --focus-ring: var(--accent);
+  position-anchor: --binder-account-menu;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  inset: auto;
+  margin: 6px 0;
+  width: 260px;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-family: var(--font-body);
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 12px;
+}
+
+.identityText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.identityName,
+.identityEmail {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.identityName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.identityEmail {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  padding-top: 6px;
+  border-top: var(--border) solid var(--line);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  border: none;
+  border-radius: max(0px, calc(var(--radius-control) - 4px));
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.item svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--surface-2);
+}
+
+.item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Открытая сейчас страница */
+.item[aria-current='page'] {
+  font-weight: 600;
+}
+
+.item[aria-current='page'] svg {
+  color: var(--text);
+}
+
+.separator {
+  height: 0;
+  margin: 6px 0;
+  border: none;
+  border-top: var(--border) solid var(--line);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Закрытие: правило действует, как только снят :popover-open */
+  .menu {
+    opacity: 0;
+    translate: 0 -4px;
+    transition: opacity, translate, display, overlay;
+    transition-duration: 0.12s;
+    transition-behavior: allow-discrete;
+  }
+
+  .menu:popover-open {
+    opacity: 1;
+    translate: 0 0;
+    transition-duration: 0.1s;
+
+    @starting-style {
+      opacity: 0;
+      translate: 0 -4px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger > svg {
+    transition: none;
+  }
 }

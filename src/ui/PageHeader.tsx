@@ -1,7 +1,13 @@
+import type { User } from 'firebase/auth/web-extension';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import { Link, useLocation } from 'wouter';
+import { useAuth } from '@/lib/auth-state';
+import { leaveBinder } from '@/settings/leave';
+import { Avatar } from '@/ui/Avatar';
 import { Brand } from '@/ui/Brand';
 import { cx } from '@/ui/cx';
-import { SearchIcon, UserIcon } from '@/ui/Icons';
+import { ChevronDownIcon, SearchIcon, SignOutIcon, SlidersIcon, UserIcon } from '@/ui/Icons';
+import { menuFocusTarget } from '@/ui/menu-keys';
 import styles from './PageHeader.module.css';
 
 /** Разделы вкладки и маршруты, при которых раздел подсвечен. */
@@ -14,6 +20,7 @@ const SECTIONS = [
 
 export function PageHeader() {
   const [location] = useLocation();
+  const auth = useAuth();
   return (
     <header className={styles.header}>
       <Link href="/library" className={styles.brand}>
@@ -39,10 +46,180 @@ export function PageHeader() {
           <SearchIcon size={16} stroke={2} />
           <input aria-label="Поиск" placeholder="Поиск карточек и друзей" disabled />
         </label>
-        <Link href="/u/me" className={styles.profile} aria-label="Мой профиль">
-          <UserIcon size={18} />
-        </Link>
+        {auth.status === 'signed-in' && <AccountMenu user={auth.user} location={location} />}
+        {/* Пока сессия восстанавливается, место под меню занято: поиск не прыгает */}
+        {auth.status === 'loading' && <span className={styles.menuPlaceholder} aria-hidden="true" />}
       </div>
     </header>
+  );
+}
+
+/** В Chrome 150+ стрелки внутри меню ведёт атрибут focusgroup, в Chrome 135–149 — свой код. */
+const nativeFocusgroup = typeof HTMLElement !== 'undefined' && 'focusGroup' in HTMLElement.prototype;
+
+function menuItems(group: HTMLElement | null): HTMLElement[] {
+  return group ? [...group.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)')] : [];
+}
+
+/**
+ * Меню аккаунта: аватар в шапке открывает «Мой профиль», «Настройки» и «Выйти».
+ * Открывает его сам браузер: кнопка-вызыватель (commandfor + toggle-popover) и popover="auto",
+ * поэтому Esc, клик мимо меню и возврат фокуса на кнопку работают без своего кода.
+ * Свой код: вход в меню с клавиатуры, Home/End, закрытие при уходе фокуса и после выбора пункта.
+ */
+function AccountMenu({ user, location }: { user: User; location: string }) {
+  const triggerId = useId();
+  const menuId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const groupRef = useRef<HTMLDivElement>(null);
+  // Открыли с клавиатуры (Enter, пробел, стрелка вниз): фокус сразу на первый пункт
+  const enterOnOpen = useRef(false);
+  const [open, setOpen] = useState(false);
+  const name = user.displayName || user.email || 'Участник';
+
+  useEffect(() => {
+    const menu = menuRef.current;
+    const trigger = triggerRef.current;
+    if (!menu || !trigger) return;
+
+    const onToggle = (event: Event) => {
+      const opened = (event as ToggleEvent).newState === 'open';
+      setOpen(opened);
+      if (opened) {
+        // Фокус переводится здесь, а не в обработчике клика: меню к тому моменту ещё закрыто
+        if (enterOnOpen.current) menuItems(groupRef.current)[0]?.focus();
+        else trigger.focus({ focusVisible: false });
+      }
+      enterOnOpen.current = false;
+    };
+
+    // Tab увёл фокус из меню: закрываем, как системные меню, иначе оно висело бы над страницей
+    const onFocusIn = (event: FocusEvent) => {
+      if (!menu.matches(':popover-open')) return;
+      const target = event.target;
+      if (target instanceof Node && !menu.contains(target) && !trigger.contains(target)) menu.hidePopover();
+    };
+
+    menu.addEventListener('toggle', onToggle);
+    document.addEventListener('focusin', onFocusIn);
+    return () => {
+      menu.removeEventListener('toggle', onToggle);
+      document.removeEventListener('focusin', onFocusIn);
+    };
+  }, []);
+
+  // Выбранный пункт: фокус на кнопку меню (без кольца, если нажали мышью), потом закрыть
+  const close = (fromPointer: boolean) => {
+    triggerRef.current?.focus({ focusVisible: !fromPointer });
+    if (menuRef.current?.matches(':popover-open')) menuRef.current.hidePopover();
+  };
+
+  const onTriggerClick = (event: MouseEvent<HTMLButtonElement>) => {
+    // Enter и пробел дают click с detail 0, мышь — с 1 и больше
+    enterOnOpen.current = event.detail === 0;
+  };
+
+  const onTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'ArrowDown') return;
+    event.preventDefault();
+    if (menuRef.current?.matches(':popover-open')) {
+      menuItems(groupRef.current)[0]?.focus();
+    } else {
+      enterOnOpen.current = true;
+      // Открытие одно — через вызыватель, как у мыши и Enter
+      triggerRef.current?.click();
+    }
+  };
+
+  const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const items = menuItems(groupRef.current);
+    const current = items.indexOf(document.activeElement as HTMLElement);
+    const next = menuFocusTarget(event.key, current, items.length, !nativeFocusgroup);
+    if (next === null) return;
+    event.preventDefault();
+    items[next]?.focus();
+  };
+
+  // Мышь над пунктом переводит на него фокус без кольца: наведение и фокус — один и тот же пункт
+  const onItemPointerMove = (event: PointerEvent<HTMLElement>) => {
+    if (document.activeElement !== event.currentTarget) event.currentTarget.focus({ focusVisible: false });
+  };
+
+  const itemProps = {
+    className: styles.item,
+    role: nativeFocusgroup ? undefined : 'menuitem',
+    tabIndex: nativeFocusgroup ? undefined : -1,
+    onPointerMove: onItemPointerMove,
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        id={triggerId}
+        type="button"
+        className={styles.trigger}
+        aria-label="Меню аккаунта"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        commandfor={menuId}
+        command="toggle-popover"
+        onClick={onTriggerClick}
+        onKeyDown={onTriggerKeyDown}
+      >
+        <Avatar src={user.photoURL} size={36} />
+        <ChevronDownIcon size={16} stroke={2} />
+      </button>
+      {/* Сразу за кнопкой: так браузер не добавляет кнопке лишний aria-details */}
+      <div ref={menuRef} id={menuId} popover="auto" className={styles.menu}>
+        <div className={styles.identity}>
+          <Avatar src={user.photoURL} size={40} />
+          <div className={styles.identityText}>
+            <span className={styles.identityName}>{name}</span>
+            {user.email && user.email !== name && <span className={styles.identityEmail}>{user.email}</span>}
+          </div>
+        </div>
+        <div
+          ref={groupRef}
+          focusgroup="menu nomemory"
+          role={nativeFocusgroup ? undefined : 'menu'}
+          aria-labelledby={triggerId}
+          className={styles.items}
+          onKeyDown={onMenuKeyDown}
+        >
+          <Link
+            href="/u/me"
+            {...itemProps}
+            aria-current={location === '/u/me' ? 'page' : undefined}
+            onClick={(event: MouseEvent) => close(event.detail > 0)}
+          >
+            <UserIcon size={18} />
+            Мой профиль
+          </Link>
+          <Link
+            href="/settings"
+            {...itemProps}
+            aria-current={location === '/settings' ? 'page' : undefined}
+            onClick={(event: MouseEvent) => close(event.detail > 0)}
+          >
+            <SlidersIcon size={18} />
+            Настройки
+          </Link>
+          <hr className={styles.separator} />
+          <button
+            type="button"
+            {...itemProps}
+            onClick={(event) => {
+              close(event.detail > 0);
+              leaveBinder();
+            }}
+          >
+            <SignOutIcon size={18} />
+            Выйти
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
