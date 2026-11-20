@@ -1,0 +1,195 @@
+.side {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel {
+  padding: 20px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+.heading {
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sets,
+.top {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Строка сета — кнопка: выбирает сет в фильтре, повторное нажатие снимает выбор */
+.setRow {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 -8px;
+  padding: 6px 8px;
+  box-sizing: content-box;
+  border: none;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.setRow:hover {
+  background: var(--surface-2);
+}
+
+.setRow:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 0;
+}
+
+.setActive,
+.setActive:hover {
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--selected);
+}
+
+.setLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.setName {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.setActive .setName {
+  font-weight: 600;
+}
+
+.setCount {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.setRow:hover .track,
+.setActive .track {
+  background: var(--line);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+:global([data-theme='retro']) .track {
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.more {
+  height: 44px;
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--link);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.more:hover {
+  text-decoration: underline;
+}
+
+.more:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 6px 0;
+  color: var(--text);
+  text-decoration: none;
+  border-top: var(--border) solid var(--line);
+}
+
+.top li:first-child .topRow {
+  border-top: none;
+}
+
+.topRow:hover .topName {
+  text-decoration: underline;
+}
+
+.topRow:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-inner);
+}
+
+.topThumb {
+  width: 34px;
+  flex-shrink: 0;
+}
+
+.topText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.topName {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.topSet {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.topPrice {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

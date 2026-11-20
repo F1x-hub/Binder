@@ -1,0 +1,28 @@
+.panel {
+  composes: panel from './Panel.module.css';
+}
+
+.head {
+  composes: head from './Panel.module.css';
+}
+
+.title {
+  composes: title from './Panel.module.css';
+}
+
+.muted {
+  composes: muted from './Panel.module.css';
+}
+
+.grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 18px 16px;
+}
+
+.item {
+  min-width: 0;
+}

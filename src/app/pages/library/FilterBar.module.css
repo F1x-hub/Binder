@@ -1,0 +1,127 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Поиск — такой же «чип», как фильтры рядом */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 220px;
+  max-width: 100%;
+  height: 44px;
+  padding: 0 12px 0 14px;
+  box-sizing: border-box;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: text;
+}
+
+.search:hover {
+  border-color: var(--muted);
+}
+
+.search:focus-within {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.searchOn {
+  border-color: var(--selected);
+  color: var(--text);
+}
+
+.search input {
+  flex-grow: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.search input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* Фильтр-список: как чип из макета; включённый — цветом выбора темы */
+.chip.chip {
+  width: auto;
+  height: 44px;
+  justify-content: flex-start;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.chipOn.chipOn,
+.chipOn.chipOn:hover {
+  background: var(--selected);
+  color: var(--on-selected);
+  border-color: var(--selected);
+  font-weight: 600;
+}
+
+.chipOn.chipOn::picker-icon {
+  color: currentColor;
+}
+
+.reset {
+  height: 44px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--link);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.reset:hover {
+  text-decoration: underline;
+}
+
+.reset:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sort {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sortLabel {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.sortSelect.sortSelect {
+  width: auto;
+}
+
+.note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}

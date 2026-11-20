@@ -1,0 +1,138 @@
+.card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.imageWrap {
+  position: relative;
+}
+
+/* Карта открывает свою страницу; при наведении чуть приподнимается */
+.cardLink {
+  display: block;
+  border-radius: var(--radius-card);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+
+.cardLink:hover {
+  transform: translateY(-3px);
+}
+
+.cardLink:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardLink {
+    transition: none;
+  }
+
+  .cardLink:hover {
+    transform: none;
+  }
+}
+
+.count {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 2px 8px;
+  border-radius: var(--radius-inner);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * «−»: видимая кнопка маленькая, под стать значку языка, а нажать можно по зоне 44 × 44.
+ * В углу карты она видна при наведении и фокусе, на сенсорных экранах — всегда.
+ */
+.remove {
+  position: relative;
+  min-width: 28px;
+  height: 28px;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border-radius: var(--radius-inner);
+  border: var(--border) solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.remove::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.remove:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cornerRemove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.card:hover .cornerRemove,
+.cornerRemove:focus-visible,
+.cornerRemove.confirming {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .cornerRemove {
+    opacity: 1;
+  }
+}
+
+.confirming {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.remove:disabled {
+  opacity: 0.6;
+}
+
+.caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.cardName {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.price {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

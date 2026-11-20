@@ -6,164 +6,86 @@
   gap: 24px 40px;
 }
 
-.add.add {
-  width: auto;
-  height: 46px;
-  font-size: 14px;
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 24px;
-  border-radius: var(--radius-panel);
-  background: var(--surface);
-  border: var(--border) solid var(--line);
-  box-shadow: var(--panel-shadow);
-}
-
-.panelHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-}
-
-.setName {
-  font-size: 17px;
-  font-weight: 600;
-}
-
-.muted {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-  gap: 18px 16px;
-}
-
-.card {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-
-.imageWrap {
-  position: relative;
-}
-
-/* Карта открывает свою страницу; при наведении чуть приподнимается */
-.cardLink {
-  display: block;
-  border-radius: var(--radius-card);
-  transition: transform 0.15s ease;
-}
-
-.cardLink:hover {
-  transform: translateY(-3px);
-}
-
-.cardLink:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cardLink {
-    transition: none;
-  }
-
-  .cardLink:hover {
-    transform: none;
-  }
-}
-
-.count {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  padding: 2px 8px;
-  border-radius: var(--radius-inner);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
 .euro {
   font-size: 14px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
-/* «−» в углу карты: видна при наведении и фокусе, на сенсорных экранах — всегда */
-.remove {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 44px;
-  height: 44px;
+.heroActions {
+  margin-left: auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  padding: 0 10px;
+  gap: 10px;
+}
+
+.add.add {
+  width: auto;
+  height: 46px;
+  font-size: 14px;
+}
+
+/* Переключатель вида, как в макете: кнопки в подложке, выбранная — цветом выбора темы */
+.views {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
   border-radius: var(--radius-control);
+  background: var(--surface-2);
   border: var(--border) solid var(--line);
-  background: var(--surface);
-  color: var(--text);
+}
+
+.viewButton {
+  min-height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  color: var(--muted);
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
-  box-shadow: var(--shadow);
-  opacity: 0;
-  transition: opacity 0.15s ease;
+  cursor: pointer;
 }
 
-.card:hover .remove,
-.remove:focus-visible,
-.confirming {
-  opacity: 1;
+.viewButton:hover {
+  color: var(--text);
 }
 
-@media (hover: none) {
-  .remove {
-    opacity: 1;
-  }
+.viewButton:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
-.confirming {
-  background: var(--accent);
-  color: var(--on-accent);
-  border-color: var(--accent);
+.viewOn,
+.viewOn:hover {
+  background: var(--selected);
+  color: var(--on-selected);
 }
 
-.remove:disabled {
-  opacity: 0.6;
-}
-
-.caption {
+/* Основная колонка и боковая; на узком экране боковая уходит вниз */
+.layout {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 13px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 28px;
 }
 
-.cardName {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-weight: 600;
+.main {
+  flex: 999 1 720px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.price {
-  flex-shrink: 0;
+.loading {
+  padding: 24px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+  font-size: 14px;
   color: var(--muted);
-  font-variant-numeric: tabular-nums;
 }
