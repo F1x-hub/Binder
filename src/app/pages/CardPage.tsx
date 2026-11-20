@@ -36,6 +36,7 @@ import { EmptyState } from '@/ui/EmptyState';
 import { BackIcon, MinusIcon, PlusIcon, ScanIcon } from '@/ui/Icons';
 import { Select } from '@/ui/Select';
 import { TiltCard } from '@/ui/TiltCard';
+import { AddToDeck } from './AddToDeck';
 import { ConditionGrader } from './ConditionGrader';
 import styles from './CardPage.module.css';
 
@@ -158,6 +159,7 @@ export function CardDetails({ view, uid }: { view: CardView; uid: string }) {
           <PricePanel view={view} />
           <FactsPanel view={view} text={text} />
           <FriendsPanel uid={uid} docId={view.docId} />
+          <AddToDeck view={view} uid={uid} />
         </div>
       </div>
 

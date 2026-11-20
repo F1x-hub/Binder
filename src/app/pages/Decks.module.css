@@ -1,0 +1,692 @@
+/* Колоды: список (#/decks) и конструктор по макету Deck.dc.html (#/decks/:id) */
+
+.muted {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Текст только для экранных дикторов */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- Список колод ---------- */
+
+.listHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 40px;
+}
+
+.listIntro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 62ch;
+}
+
+.newDeck.newDeck {
+  width: auto;
+  height: 46px;
+  font-size: 14px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  gap: 20px;
+}
+
+.tile {
+  position: relative;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+.tileLink {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  padding: 20px;
+  border-radius: inherit;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.tileLink:hover .tileName {
+  text-decoration: underline;
+}
+
+.tileLink:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Три карты колоды внахлёст; у пустой колоды — пунктирная рамка */
+.fan {
+  display: flex;
+  height: 112px;
+}
+
+.fan > * {
+  position: relative;
+  width: 80px;
+  flex-shrink: 0;
+}
+
+/* Первая карта (главный покемон колоды) лежит сверху */
+.fan > :nth-child(1) {
+  z-index: 3;
+}
+
+.fan > :nth-child(2) {
+  z-index: 2;
+}
+
+.fan > * + * {
+  margin-left: -44px;
+}
+
+.fanEmpty {
+  width: 80px;
+  aspect-ratio: 63 / 88;
+  border-radius: var(--radius-card);
+  border: var(--border) dashed var(--line);
+}
+
+.tileName {
+  padding-right: 52px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.tileStatus {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* «−» колоды в углу плитки: удаление со второго нажатия, как в альбоме */
+.tileDelete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+/* ---------- Конструктор ---------- */
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 14px 0 10px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.builder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.pool {
+  flex: 999 1 640px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.poolHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+
+.poolTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Переключатель категорий: выбранная — цветом выбора темы */
+.segmented {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  border: var(--border) solid var(--line);
+}
+
+.segmented button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--selected);
+  color: var(--on-selected);
+}
+
+/* На телефоне переключатель во всю ширину, четыре кнопки в одну строку */
+@media (max-width: 520px) {
+  .segmented {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .segmented button {
+    flex: 1 1 auto;
+    padding: 0 10px;
+  }
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 280px;
+  max-width: 420px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  color: var(--text);
+}
+
+.search:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.search input {
+  flex-grow: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.search input::placeholder {
+  color: var(--muted);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.notice {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Пустая подсказка остаётся в разметке (её читает диктор), но места не занимает */
+.notice:empty {
+  margin-top: -20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr));
+  gap: 24px 16px;
+}
+
+.poolCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.poolImage {
+  position: relative;
+}
+
+/* Карта, которой нет в колоде, — приглушённая, как в макете */
+.outOfDeck {
+  opacity: 0.55;
+}
+
+.badge {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: var(--radius-card);
+  background: var(--selected);
+  color: var(--on-selected);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cardText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cardName {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.stepperCount {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.iconButton {
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.iconButton:disabled,
+.iconButton[aria-disabled='true'] {
+  color: var(--muted);
+  opacity: 0.45;
+}
+
+.iconButton:disabled {
+  cursor: default;
+}
+
+/* Второе нажатие подтверждает удаление */
+.confirming,
+.confirming:disabled {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  opacity: 1;
+}
+
+.surfaceButton {
+  background: var(--surface);
+}
+
+/* ---------- Панель колоды ---------- */
+
+.deck {
+  flex: 1 1 340px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+/* Рядом с сеткой панель держится на экране, пока листаешь карты */
+@media (min-width: 1100px) {
+  .deck {
+    position: sticky;
+    top: 24px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+}
+
+.deckHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deckTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex-grow: 1;
+}
+
+.deckName {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: round(calc(22px * var(--display-scale)), 1px);
+  letter-spacing: var(--display-tracking);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.deckHead > .iconButton {
+  margin-left: auto;
+}
+
+.rename {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rename input {
+  flex-grow: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.totalRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.total {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: round(calc(48px * var(--display-scale)), 1px);
+  letter-spacing: var(--display-tracking);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.totalOf {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+/* Полоса заполнения; в Ретро у неё рамка в 1px, как в макете */
+.track {
+  height: 6px;
+  border-radius: calc(var(--radius-inner) / 2);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 calc(var(--border) - 1px) var(--line);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: 8px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statValue {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.divider {
+  height: var(--border);
+  background: var(--line);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+}
+
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.groupNote {
+  margin: 2px 0 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  font-size: 14px;
+}
+
+.qty {
+  width: 32px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rowName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rowWarn {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.row > .iconButton {
+  margin-left: auto;
+}
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 32px;
+  padding-top: 6px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* ✓ и ! — направление видно по значку, а не только по цвету (в монохромных темах цвет один) */
+.ok,
+.warn {
+  width: 18px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.ok {
+  color: var(--up);
+}
+
+.warn {
+  color: var(--down);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 8px 16px;
+  border-radius: var(--radius-control);
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.notReady {
+  border: var(--border) dashed var(--line);
+  color: var(--muted);
+}
+
+.ready {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--button-shadow);
+}
+
+/* На акцентной заливке галочка — цветом текста, иначе в Покемоне и Ретро её не видно */
+.ready .ok {
+  color: inherit;
+}
+
+.deleteRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.textButton {
+  min-height: 44px;
+  padding: 0 12px;
+  border: var(--border) solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.textButton:hover {
+  color: var(--text);
+}
+
+.error {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.textLink {
+  color: var(--link);
+  font-weight: 600;
+}
