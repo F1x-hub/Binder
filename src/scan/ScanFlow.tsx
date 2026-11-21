@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import type { OwnedCard } from '@/lib/collection';
 import { CARD_FORMS, SIMILAR_FORMS, countLabel, formatCardPrice, rarityLabel } from '@/lib/format';
-import { LANGUAGE_LABELS, catalogFor, htmlLang } from '@/lib/languages';
+import { searchCatalog } from '@/lib/catalog';
+import { LANGUAGE_LABELS, catalogFor, htmlLang, type CardLanguage } from '@/lib/languages';
 import { candidateLimitless } from '@/lib/limitless';
 import { usePhotoStore } from '@/lib/my-photos';
 import { MODEL_TRUST, type Candidate } from '@/lib/matching';
@@ -13,8 +14,9 @@ import { Button } from '@/ui/Button';
 import { CardImage } from '@/ui/CardImage';
 import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/EmptyState';
-import { CheckIcon, CloseIcon, ScanIcon } from '@/ui/Icons';
+import { CheckIcon, CloseIcon, ScanIcon, SearchIcon } from '@/ui/Icons';
 import { PopupHeader } from '@/ui/PopupHeader';
+import { Zoom } from '@/scan/Zoom';
 import styles from './ScanFlow.module.css';
 
 type Props = {
@@ -98,19 +100,26 @@ export function ScanFlow({ uid, owned, initialFiles, onBack, onOpenAlbum }: Prop
   } else if (scan.key) {
     body = (
       <>
-        {featured && <Featured item={featured} hasPriceKey={scan.hasPriceKey} />}
+        {featured && <Featured item={featured} hasPriceKey={scan.hasPriceKey} onReopen={scan.reopen} />}
         {featured && <PhotoChoice item={featured} onChange={scan.setKeepPhoto} />}
         {scan.ready.length > 1 && <ReadyStrip items={scan.ready} onRemove={scan.skip} />}
         {featured && current && <div className={styles.divider} />}
         {scan.pending ? (
           <Choice
+            key={scan.pending.id}
             item={scan.pending}
             afterFeatured={Boolean(featured)}
             onChoose={scan.choose}
             onAsPrinted={scan.addAsPrinted}
           />
         ) : scan.missing ? (
-          <Missing item={scan.missing} onAdd={scan.addAsPrinted} onRetry={scan.retry} />
+          <Missing
+            key={scan.missing.id}
+            item={scan.missing}
+            onAdd={scan.addAsPrinted}
+            onRetry={scan.retry}
+            onChoose={scan.choose}
+          />
         ) : null}
         <Progress photos={scan.photos} busy={scan.busy} />
         {!scan.busy && (
@@ -237,7 +246,16 @@ function priceNote(item: ScanItem, hasPriceKey: boolean): string {
   return 'без грейда';
 }
 
-export function Featured({ item, hasPriceKey = false }: { item: ScanItem; hasPriceKey?: boolean }) {
+export function Featured({
+  item,
+  hasPriceKey = false,
+  onReopen,
+}: {
+  item: ScanItem;
+  hasPriceKey?: boolean;
+  /** «Другая печать»: у карты, выбранной по фото или вручную из вариантов */
+  onReopen?: (itemId: string) => void;
+}) {
   const view = describeItem(item);
   const detail = item.pick ? item.details[item.pick.cardId] : undefined;
   const extra = [LANGUAGE_LABELS[item.detected.language].card, rarityLabel(detail?.rarity), item.detected.holo ? 'голо' : null]
@@ -245,11 +263,15 @@ export function Featured({ item, hasPriceKey = false }: { item: ScanItem; hasPri
     .join(' · ');
   // Уверенность — меньшее из того, как уверена модель в прочитанном и как хорошо карта сошлась с базой
   const certainty = Math.min(item.detected.confidence, item.pick?.score ?? 1);
+  const look = item.pick ? item.likeness[item.pick.cardId] : undefined;
   const status = item.manual
     ? item.pick
       ? 'Выбрано вручную'
       : 'Добавим как есть'
-    : `Распознано, ${Math.round(certainty * 100)}%`;
+    : item.byLook && look !== undefined
+      ? `Похоже на фото, ${Math.round(look * 100)}%`
+      : `Распознано, ${Math.round(certainty * 100)}%`;
+  const canReopen = Boolean(onReopen) && item.options.length > 1;
   const priced = item.pick !== null && !item.pick.approximate && item.price !== null;
   // С «Моё фото» видно, что ляжет в альбом: своё фото вместо скана
   const mine = item.keepPhoto && Boolean(item.photo);
@@ -268,6 +290,9 @@ export function Featured({ item, hasPriceKey = false }: { item: ScanItem; hasPri
           <CheckIcon size={14} stroke={2.4} />
           {status}
         </div>
+        {item.byLook && (
+          <div className={styles.small}>ИИ не уверен в номере, а картинка совпала с этой печатью лучше остальных.</div>
+        )}
         <div className={styles.cardName}>{view.name}</div>
         {view.original && (
           <div className={styles.muted} lang={htmlLang(item.detected.language)}>
@@ -280,6 +305,11 @@ export function Featured({ item, hasPriceKey = false }: { item: ScanItem; hasPri
           {priced && <span className={styles.price}>{formatCardPrice(item.price)}</span>}
           <span className={styles.muted}>{priceNote(item, hasPriceKey)}</span>
         </div>
+        {canReopen && (
+          <Button variant="link" className={styles.reopen} onClick={() => onReopen?.(item.id)}>
+            Другая печать
+          </Button>
+        )}
       </div>
     </section>
   );
@@ -343,6 +373,11 @@ function readAs(item: ScanItem): string {
   return `«${name}${setCode ? ` · ${setCode}` : ''} ${numberOf(number, total)}»`;
 }
 
+/** Сколько вариантов видно сразу: остальные — по «Показать ещё». */
+const VISIBLE_OPTIONS = 4;
+/** Если самый похожий на фото вариант найден, сразу видно на один меньше. */
+const VISIBLE_WITH_BEST = 3;
+
 export function Choice({
   item,
   afterFeatured,
@@ -354,52 +389,269 @@ export function Choice({
   onChoose: (itemId: string, candidate: Candidate) => void;
   onAsPrinted: (itemId: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const [searching, setSearching] = useState(false);
   const approximate = item.options.some((option) => option.approximate);
-  const subtitle = approximate
+  const why = approximate
     ? 'Язык карты не определён, вот похожие из английской базы'
     : item.detected.confidence < MODEL_TRUST
       ? 'ИИ не уверен в прочитанном, вот печати этой карты'
       : item.options.some((option) => option.weak)
         ? 'Номер не подтвердился, вот печати этой карты'
         : item.options.length > 1
-      ? `ИИ видит ${countLabel(item.options.length, SIMILAR_FORMS)}`
-      : 'Проверь, та ли это карта';
+          ? `ИИ видит ${countLabel(item.options.length, SIMILAR_FORMS)}`
+          : 'Проверь, та ли это карта';
+  const order = item.bestLook
+    ? 'Первой — печать, больше всего похожая на фото.'
+    : item.looking
+      ? 'Сравниваем печати с фото…'
+      : Object.keys(item.likeness).length > 1
+        ? 'Похожие на фото — выше.'
+        : null;
+  const limit = item.bestLook ? VISIBLE_WITH_BEST : VISIBLE_OPTIONS;
+  const shown = expanded ? item.options : item.options.slice(0, limit);
+  const hidden = item.options.length - shown.length;
   return (
     <section className={styles.choice}>
-      <div>
-        <div className={styles.choiceTitle}>{afterFeatured ? 'Следующая: нужна твоя помощь' : 'Нужна твоя помощь'}</div>
-        <div className={styles.small}>
-          {subtitle}. Прочитано {readAs(item)}
+      <div className={styles.choiceHead}>
+        <PhotoCrop item={item} />
+        <div>
+          <div className={styles.choiceTitle}>{afterFeatured ? 'Следующая: нужна твоя помощь' : 'Нужна твоя помощь'}</div>
+          <div className={styles.small}>
+            {why}. Прочитано {readAs(item)}.{order && ` ${order}`}
+          </div>
         </div>
       </div>
       <div className={styles.options}>
-        {item.options.map((option) => (
-          <button key={option.cardId} type="button" className={styles.option} onClick={() => onChoose(item.id, option)}>
-            <CardImage
-              image={option.image}
-              limitless={candidateLimitless(option)}
-              name={option.name}
-              number={option.localId}
-              className={styles.optionImage}
-            />
-            <span className={styles.optionText}>
-              <span className={styles.optionName}>{option.name}</span>
-              <span className={styles.small}>
-                {[cardMeta(option), rarityLabel(item.details[option.cardId]?.rarity)].filter(Boolean).join(' · ')}
-              </span>
-            </span>
-            <span className={styles.radio} aria-hidden="true" />
-          </button>
+        {shown.map((option) => (
+          <OptionRow
+            key={option.cardId}
+            option={option}
+            rarity={rarityLabel(item.details[option.cardId]?.rarity)}
+            best={option.cardId === item.bestLook}
+            onChoose={() => onChoose(item.id, option)}
+          />
         ))}
-        <button type="button" className={cx(styles.option, styles.optionPlain)} onClick={() => onAsPrinted(item.id)}>
-          <span className={styles.optionText}>
-            <span className={styles.optionName}>Ни одна не подходит</span>
-            <span className={styles.small}>Добавить как напечатана, обложкой станет фото</span>
-          </span>
-          <span className={styles.radio} aria-hidden="true" />
-        </button>
+        {hidden > 0 && (
+          <button type="button" className={styles.moreOptions} onClick={() => setExpanded(true)}>
+            Показать ещё {hidden}
+          </button>
+        )}
+        {searching ? (
+          <CardSearch item={item} onChoose={onChoose} onAsPrinted={onAsPrinted} onClose={() => setSearching(false)} />
+        ) : (
+          <button type="button" className={cx(styles.option, styles.optionPlain)} onClick={() => setSearching(true)}>
+            <SearchIcon size={18} stroke={2} />
+            <span className={styles.optionText}>
+              <span className={styles.optionName}>Ни одна не подходит</span>
+              <span className={styles.small}>Найти карту в базе по имени, номеру или сету</span>
+            </span>
+          </button>
+        )}
       </div>
     </section>
+  );
+}
+
+function optionLabel(option: Candidate): string {
+  return `${displayNames(option.name, option.englishName).primary}, ${cardMeta(option)}`;
+}
+
+/** Обложка варианта крупно: скан высокого качества. */
+function bigCover(option: Candidate) {
+  return () => (
+    <CardImage
+      image={option.image}
+      limitless={candidateLimitless(option)}
+      name={displayNames(option.name, option.englishName).primary}
+      number={option.localId}
+      quality="high"
+    />
+  );
+}
+
+/**
+ * Вариант на выбор: обложка (наведение, фокус на строке с клавиатуры или касание обложки
+ * показывают её крупно) и строка — кнопка выбора. Щелчок мышью по обложке тоже выбирает.
+ */
+function OptionRow({
+  option,
+  rarity,
+  best = false,
+  onChoose,
+}: {
+  option: Candidate;
+  rarity?: string | null;
+  best?: boolean;
+  onChoose: () => void;
+}) {
+  const [keyboard, setKeyboard] = useState(false);
+  const { primary, secondary } = displayNames(option.name, option.englishName);
+  return (
+    <div className={cx(styles.option, styles.optionRow, best && styles.optionBest)}>
+      <Zoom
+        label={optionLabel(option)}
+        big={bigCover(option)}
+        active={keyboard}
+        focusable={false}
+        onMouseClick={onChoose}
+        className={styles.optionCover}
+      >
+        <CardImage
+          image={option.image}
+          limitless={candidateLimitless(option)}
+          name={primary}
+          number={option.localId}
+          className={styles.optionImage}
+        />
+      </Zoom>
+      <button
+        type="button"
+        className={styles.optionPick}
+        onClick={onChoose}
+        onFocus={(event) => setKeyboard(event.currentTarget.matches(':focus-visible'))}
+        onBlur={() => setKeyboard(false)}
+      >
+        <span className={styles.optionText}>
+          {best && <span className={styles.bestTag}>Похоже больше всего</span>}
+          <span className={styles.optionName}>{primary}</span>
+          {secondary && (
+            <span className={styles.small} lang={htmlLang(option.lang)}>
+              {secondary}
+            </span>
+          )}
+          <span className={styles.small}>{[cardMeta(option), rarity].filter(Boolean).join(' · ')}</span>
+        </span>
+        <span className={styles.radio} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+/** Карта, как она на фото: вырезка по рамке модели, её тоже можно рассмотреть крупно. */
+function PhotoCrop({ item }: { item: ScanItem }) {
+  const src = item.photo ?? item.thumb;
+  if (!src) return null;
+  return (
+    <Zoom label="твоя карта на фото" big={() => <img src={src} alt="Твоя карта на фото" />} className={styles.crop}>
+      <img src={item.thumb ?? src} alt="" />
+      <span className={styles.cropLabel}>Фото</span>
+    </Zoom>
+  );
+}
+
+/** Задержка перед поиском: пока печатают, запросов нет. */
+const SEARCH_DELAY = 350;
+/** Сколько найденных карт видно сразу. */
+const VISIBLE_FOUND = 6;
+
+/** Подсказка, что можно искать: у корейских карт — только код сета и номер. */
+function searchHint(language: CardLanguage): string {
+  if (language === 'ko') return 'Код сета и номер: SV2a 94';
+  if (language === 'zh-cn') return 'Имя и номер или сет: 皮卡丘 25, CSV1C 161';
+  if (language === 'ja') return 'Имя, номер или сет: メガゲンガー 3, SV2a 94, MBG 3';
+  return 'Имя, номер или сет: Pikachu ex 149, 30th 150';
+}
+
+/**
+ * Свой поиск по базе языка карты (searchCatalog): имя, номер, сет. Ищется через 350 мс после
+ * последней буквы, ответы хранятся до конца жизни вкладки. Последний пункт — добавить карту
+ * как напечатана, если в базе её нет.
+ */
+export function CardSearch({
+  item,
+  onChoose,
+  onAsPrinted,
+  onClose,
+}: {
+  item: ScanItem;
+  onChoose: (itemId: string, candidate: Candidate) => void;
+  onAsPrinted: (itemId: string) => void;
+  onClose?: () => void;
+}) {
+  const language = item.detected.language;
+  const [query, setQuery] = useState('');
+  const [result, setResult] = useState<{
+    query: string;
+    found: Candidate[];
+    failed: boolean;
+  } | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
+  const trimmed = query.trim();
+
+  useEffect(() => field.current?.focus(), []);
+
+  useEffect(() => {
+    if (trimmed.length < 2) return;
+    let stale = false;
+    const timer = setTimeout(() => {
+      searchCatalog(trimmed, language).then(
+        (found) => !stale && setResult({ query: trimmed, found, failed: false }),
+        () => !stale && setResult({ query: trimmed, found: [], failed: true }),
+      );
+    }, SEARCH_DELAY);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [trimmed, language]);
+
+  const current = result && result.query === trimmed && trimmed.length >= 2 ? result : null;
+  const found = current?.found ?? [];
+  const shown = expanded ? found : found.slice(0, VISIBLE_FOUND);
+  let status = 'Напиши хотя бы два знака';
+  if (trimmed.length >= 2 && !current) status = 'Ищем…';
+  else if (current?.failed) status = 'База не ответила. Проверь интернет и попробуй ещё раз.';
+  else if (current && found.length === 0) status = 'Ничего не нашлось. Попробуй другое имя, номер или сет.';
+  else if (current) status = `Нашлось: ${countLabel(found.length, CARD_FORMS)}`;
+  const fieldId = `scan-search-${item.id}`;
+
+  return (
+    <div className={styles.search} role="search">
+      <div className={styles.searchHead}>
+        <label className={styles.choiceTitle} htmlFor={fieldId}>
+          Найти в базе
+        </label>
+        {onClose && (
+          <button type="button" className={styles.searchClose} aria-label="Закрыть поиск" onClick={onClose}>
+            <CloseIcon size={14} stroke={2.4} />
+          </button>
+        )}
+      </div>
+      <input
+        ref={field}
+        id={fieldId}
+        type="search"
+        className={styles.searchField}
+        value={query}
+        placeholder={searchHint(language)}
+        autoComplete="off"
+        spellCheck={false}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setExpanded(false);
+        }}
+      />
+      <p className={styles.small} role="status">
+        {status}
+      </p>
+      {shown.map((option) => (
+        <OptionRow key={option.cardId} option={option} onChoose={() => onChoose(item.id, option)} />
+      ))}
+      {found.length > shown.length && (
+        <button type="button" className={styles.moreOptions} onClick={() => setExpanded(true)}>
+          Показать ещё {found.length - shown.length}
+        </button>
+      )}
+      <button type="button" className={cx(styles.option, styles.optionPlain)} onClick={() => onAsPrinted(item.id)}>
+        <span className={styles.optionText}>
+          <span className={styles.optionName}>Добавить как напечатана</span>
+          <span className={styles.small}>Если её нет в базе: обложкой станет фото, цены не будет</span>
+        </span>
+        <span className={styles.radio} aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 
@@ -407,12 +659,16 @@ export function Missing({
   item,
   onAdd,
   onRetry,
+  onChoose,
 }: {
   item: ScanItem;
   onAdd: (itemId: string) => void;
   onRetry: (itemId: string) => void;
+  /** Карта, найденная своим поиском: «Найти в базе» есть, только если он передан */
+  onChoose?: (itemId: string, candidate: Candidate) => void;
 }) {
   const { detected } = item;
+  const [searching, setSearching] = useState(false);
   let why = 'В базе TCGdex её не нашлось: там есть не все наборы, а новым сетам нужно время.';
   if (item.searchFailed) why = 'Проверь интернет и поищи ещё раз.';
   else if (catalogFor(detected.language).tcgdex === null) why = 'Китайских карт для КНР и корейских в базах карт нет.';
@@ -422,34 +678,44 @@ export function Missing({
       : 'В TCGdex её не нашлось, а без кода сета её не найти в Limitless TCG.';
   }
   return (
-    <section className={styles.missing}>
-      <CardImage
-        thumb={item.thumb}
-        name={detected.name}
-        number={numberOf(detected.number, detected.total)}
-        className={styles.missingImage}
-      />
-      <div className={styles.missingText}>
-        <div className={styles.choiceTitle}>{item.searchFailed ? 'База карт не ответила' : 'Этой карты нет в базе'}</div>
-        <div className={styles.small}>
-          Прочитано {readAs(item)}. {LANGUAGE_LABELS[detected.language].card}.
-        </div>
-        <div className={styles.small}>{why}</div>
-        <div className={styles.small}>
-          Её можно добавить как есть: обложкой станет вырезка из фото, она хранится только в этом браузере. Цены у
-          такой карты не будет.
-        </div>
-        <div className={styles.actions}>
-          <Button className={styles.inline} onClick={() => onAdd(item.id)}>
-            Добавить как есть
-          </Button>
-          {item.searchFailed && (
-            <Button variant="link" onClick={() => onRetry(item.id)}>
-              Искать снова
+    <section className={styles.missingWrap}>
+      <div className={styles.missing}>
+        <CardImage
+          thumb={item.thumb}
+          name={detected.name}
+          number={numberOf(detected.number, detected.total)}
+          className={styles.missingImage}
+        />
+        <div className={styles.missingText}>
+          <div className={styles.choiceTitle}>{item.searchFailed ? 'База карт не ответила' : 'Этой карты нет в базе'}</div>
+          <div className={styles.small}>
+            Прочитано {readAs(item)}. {LANGUAGE_LABELS[detected.language].card}.
+          </div>
+          <div className={styles.small}>{why}</div>
+          <div className={styles.small}>
+            Её можно добавить как есть: обложкой станет вырезка из фото, она хранится только в этом браузере. Цены у такой
+            карты не будет.
+          </div>
+          <div className={styles.actions}>
+            <Button className={styles.inline} onClick={() => onAdd(item.id)}>
+              Добавить как есть
             </Button>
-          )}
+            {item.searchFailed && (
+              <Button variant="link" onClick={() => onRetry(item.id)}>
+                Искать снова
+              </Button>
+            )}
+            {onChoose && !item.searchFailed && !searching && (
+              <Button variant="link" start={<SearchIcon size={16} stroke={2} />} onClick={() => setSearching(true)}>
+                Найти в базе
+              </Button>
+            )}
+          </div>
         </div>
       </div>
+      {onChoose && searching && (
+        <CardSearch item={item} onChoose={onChoose} onAsPrinted={onAdd} onClose={() => setSearching(false)} />
+      )}
     </section>
   );
 }

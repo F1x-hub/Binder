@@ -16,7 +16,8 @@ export default defineConfig({
     description: 'Закрытый клуб коллекционеров: альбом настоящих карточек, цены и колоды.',
     permissions: ['storage', 'identity'],
     // Поиск японских карт по имени на limitlesstcg.com отдаёт HTML без CORS (src/lib/limitless.ts).
-    // Их JSON и CDN со сканами разрешают запросы откуда угодно, им разрешение не нужно.
+    // Их JSON разрешает запросы откуда угодно; CDN со сканами показывается в img без разрешения,
+    // а прочитать пиксели скана (сравнение с фото в сканере) можно только с разрешением ниже.
     // Цены и английские имена китайских карт для КНР с pikaqian.com (src/lib/pikaqian.ts) и карты
     // Тайваня с официального asia.pokemon-card.com (src/lib/asia-tw.ts) тоже приходят без CORS.
     // Набор карт КНР с raw.githubusercontent.com (src/lib/cn-catalog.ts) отдаётся с CORS *.
@@ -26,6 +27,8 @@ export default defineConfig({
       'https://asia.pokemon-card.com/*',
       // Цены корейских карт (src/lib/pokepolio.ts): HTML без CORS
       'https://www.pokepolio.com/*',
+      // Сканы Limitless без CORS: сканер читает их пиксели, чтобы сравнить печати с фото (src/lib/card-look.ts)
+      'https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/*',
     ],
     // OAuth-клиент типа Chrome Extension в Google Cloud (проект binder-54fb1), привязан к ID выше.
     // chrome.identity.getAuthToken берёт аккаунт, под которым залогинен Chrome.

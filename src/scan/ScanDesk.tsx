@@ -5,6 +5,7 @@ import { imageFiles } from '@/lib/photo';
 import { DeepseekKeyField } from '@/scan/DeepseekKeyField';
 import { Choice, Featured, Missing, PhotoChoice } from '@/scan/ScanFlow';
 import { useScan, type Photo, type ScanItem } from '@/scan/useScan';
+import { Zoom } from '@/scan/Zoom';
 import { Button } from '@/ui/Button';
 import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/EmptyState';
@@ -341,11 +342,26 @@ function BoxMark({
 }) {
   const [left, top, width, height] = item.detected.box!;
   const tone = item.status === 'ready' ? styles.boxReady : styles.boxPending;
+  // Номер в фокусе с клавиатуры показывает карту с фото крупно, как наведение на рамку
+  const [keyboard, setKeyboard] = useState(false);
+  const crop = item.photo ?? item.thumb;
   return (
     <div
       className={cx(styles.box, tone, active && styles.boxActive)}
       style={{ left: `${left * 100}%`, top: `${top * 100}%`, width: `${width * 100}%`, height: `${height * 100}%` }}
     >
+      {crop && (
+        <Zoom
+          label={`карта ${n} с фото`}
+          big={() => <img src={crop} alt={`Карта ${n} с фото`} />}
+          active={keyboard}
+          focusable={false}
+          onMouseClick={() => onFocus(item.id)}
+          className={styles.boxZoom}
+        >
+          <span className={styles.boxZoomArea} />
+        </Zoom>
+      )}
       <button
         type="button"
         className={styles.boxNumber}
@@ -353,6 +369,8 @@ function BoxMark({
         onClick={() => onFocus(item.id)}
         onMouseEnter={() => onActive(item.id)}
         onMouseLeave={() => onActive(null)}
+        onFocus={(event) => setKeyboard(event.currentTarget.matches(':focus-visible'))}
+        onBlur={() => setKeyboard(false)}
       >
         {n}
       </button>
@@ -450,13 +468,13 @@ function CardList({
               <div className={styles.itemBody}>
                 {item.status === 'ready' ? (
                   <div className={styles.readyBody}>
-                    <Featured item={item} hasPriceKey={scan.hasPriceKey} />
+                    <Featured item={item} hasPriceKey={scan.hasPriceKey} onReopen={scan.reopen} />
                     <PhotoChoice item={item} onChange={scan.setKeepPhoto} />
                   </div>
                 ) : item.status === 'choose' ? (
                   <Choice item={item} afterFeatured={false} onChoose={scan.choose} onAsPrinted={scan.addAsPrinted} />
                 ) : (
-                  <Missing item={item} onAdd={scan.addAsPrinted} onRetry={scan.retry} />
+                  <Missing item={item} onAdd={scan.addAsPrinted} onRetry={scan.retry} onChoose={scan.choose} />
                 )}
               </div>
               <button

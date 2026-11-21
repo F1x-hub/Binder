@@ -7,8 +7,8 @@ vi.mock('@/lib/kv-cache', () => ({
   cachePut: async () => undefined,
 }));
 
-import { findCandidates } from '@/lib/catalog';
-import { MODEL_TRUST, decide, type Candidate, type DetectedCard } from '@/lib/matching';
+import { findCandidates, findQuerySet, nameHasWords, parseCardQuery, searchCatalog } from '@/lib/catalog';
+import { MAX_OPTIONS, MODEL_TRUST, decide, type Candidate, type DetectedCard } from '@/lib/matching';
 
 /**
  * Скан промо-картинки 30th Celebration (21 ноября 2026): Pikachu ex 30th-149 и 30th-150
@@ -129,7 +129,7 @@ describe('неуверенная модель — выбор, а не «Расп
     // Простой Pikachu и карты TCG Pocket — не печати этой карты
     expect(ids(options)).not.toContain('30th-023');
     expect(ids(options)).not.toContain('A1-096');
-    expect(options.length).toBeLessThanOrEqual(6);
+    expect(options.length).toBeLessThanOrEqual(MAX_OPTIONS);
   });
 
   it('та же карта, уверенно прочитанная, узнаётся без лишних вариантов', async () => {
@@ -140,5 +140,57 @@ describe('неуверенная модель — выбор, а не «Расп
 
   it('порог доверия модели — 0.7', () => {
     expect(MODEL_TRUST).toBe(0.7);
+  });
+});
+
+describe('свой поиск: «Ни одна не подходит»', () => {
+  it('номер — последнее слово из цифр, дробь отрезается; «30th» и «SV2a» — не номер', () => {
+    expect(parseCardQuery('Pikachu ex 149/128')).toEqual({ number: '149', words: ['Pikachu', 'ex'] });
+    expect(parseCardQuery('30th 150')).toEqual({ number: '150', words: ['30th'] });
+    expect(parseCardQuery('SV2a')).toEqual({ number: null, words: ['SV2a'] });
+    expect(parseCardQuery('Charizard TG05')).toEqual({ number: 'TG05', words: ['Charizard'] });
+  });
+
+  it('сет по ID или по имени; слова из имени сета в имя карты не идут', () => {
+    const sets = Object.values(SETS);
+    expect(findQuerySet(['Pikachu', 'ex', '30th', 'Celebration'], sets)).toMatchObject({ set: { id: '30th' }, rest: ['Pikachu', 'ex'] });
+    expect(findQuerySet(['Surging', 'Sparks'], sets)).toMatchObject({ set: { id: 'sv08' }, rest: [] });
+    expect(findQuerySet(['Ascended', 'Pikachu'], sets)).toMatchObject({ set: null, rest: ['Ascended', 'Pikachu'] });
+  });
+
+  it('имя и номер: «Pikachu ex 150» — 30th-150', async () => {
+    expect(ids(await searchCatalog('Pikachu ex 150', 'en'))).toEqual(['30th-150']);
+  });
+
+  it('сет и номер без имени: «30th 149»', async () => {
+    const found = await searchCatalog('30th 149', 'en');
+    expect(found).toMatchObject([{ cardId: '30th-149', setName: '30th Celebration', printedTotal: 128 }]);
+  });
+
+  it('имя без номера — все печати, свежие сеты первыми, без TCG Pocket', async () => {
+    const found = ids(await searchCatalog('pikachu ex', 'en'));
+    expect(found[0]?.startsWith('30th-')).toBe(true);
+    expect(found).not.toContain('A1-096');
+    expect(found).toContain('sv08-238');
+    // «ex» в запросе — слово имени: просто Pikachu не подходит
+    expect(found).not.toContain('30th-023');
+  });
+
+  it('слова запроса сверяются с именем, начало слова тоже находит', async () => {
+    expect(nameHasWords('Mega Charizard X ex', 'charizard ex')).toBe(true);
+    expect(nameHasWords('Charizard', 'charizard ex')).toBe(false);
+    expect(nameHasWords('Pikachu ex', 'pika')).toBe(true);
+    expect(nameHasWords('メガゲンガーex', 'ゲンガー')).toBe(true);
+  });
+
+  it('имя сета и имя карты: «Pikachu ex Ascended Heroes»', async () => {
+    expect(ids(await searchCatalog('Pikachu ex Ascended Heroes', 'en')).sort()).toEqual(['me02.5-276', 'me02.5-277']);
+  });
+
+  it('тот же запрос второй раз не идёт в сеть', async () => {
+    await searchCatalog('Pikachu ex 053', 'en');
+    const before = requests.length;
+    await searchCatalog('  pikachu   EX 053 ', 'en');
+    expect(requests.length).toBe(before);
   });
 });

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { likenessOf, lookVerdict, photoLooks, rankByLook, type Look } from '@/lib/card-look';
 import { catalog, findCandidates } from '@/lib/catalog';
 import {
   PRINTED_LIMITS,
@@ -52,6 +53,16 @@ export type ScanItem = {
   keepPhoto: boolean;
   /** База карт не ответила: искать можно ещё раз */
   searchFailed: boolean;
+  /** Отпечатки карты на фото (src/lib/card-look.ts): с ними варианты сравниваются с фото */
+  look: Look[] | null;
+  /** Сходство обложки каждого варианта с картой на фото: ID карты → от −1 до 1 */
+  likeness: Record<string, number>;
+  /** Варианты ещё сравниваются с фото */
+  looking: boolean;
+  /** Вариант, заметно больше других похожий на фото: «Похоже больше всего» */
+  bestLook: string | null;
+  /** Карта выбрана сама по сходству с фото, а не по прочитанному: её можно сменить */
+  byLook: boolean;
 };
 
 let counter = 0;
@@ -127,11 +138,40 @@ async function search(card: DetectedCard): Promise<{ decision: Decision; failed:
   }
 }
 
-function fromDecision(decision: Decision): Pick<ScanItem, 'status' | 'options' | 'pick'> {
+function fromDecision(
+  decision: Decision,
+): Pick<ScanItem, 'status' | 'options' | 'pick' | 'likeness' | 'bestLook' | 'byLook'> {
   return {
     status: decision.status,
     options: decision.status === 'choose' ? decision.options : [],
     pick: decision.status === 'ready' ? decision.pick : null,
+    likeness: {},
+    bestLook: null,
+    byLook: false,
+  };
+}
+
+/**
+ * Что сделать с вариантами после сравнения с фото: новый порядок, самый похожий и, если он
+ * выигрывает с большим отрывом, — выбрать его сам. Похожую карту (язык не узнан) — никогда:
+ * она не та же карта.
+ */
+export function applyLikeness(
+  item: Pick<ScanItem, 'status' | 'options' | 'manual'>,
+  likeness: Record<string, number>,
+): Pick<ScanItem, 'options' | 'likeness' | 'bestLook' | 'looking'> & {
+  auto: Candidate | null;
+} {
+  const options = rankByLook(item.options, likeness);
+  const verdict = lookVerdict(likeness);
+  const best = options.find((option) => option.cardId === verdict.best) ?? null;
+  const auto = verdict.sure && best && !best.approximate && item.status === 'choose' && !item.manual ? best : null;
+  return {
+    options,
+    likeness,
+    bestLook: best?.cardId ?? null,
+    looking: false,
+    auto,
   };
 }
 
@@ -146,6 +186,9 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
   /** Есть ли в клубе ключи JustTCG: без них у японских карт нет цены в долларах, и сканер об этом скажет */
   const [hasPriceKey, setHasPriceKey] = useState(false);
   const working = useRef(false);
+  /** Карты на сейчас: сравнение с фото кончается позже и проверяет, что карту ещё не выбрали */
+  const itemsNow = useRef(items);
+  itemsNow.current = items;
 
   useEffect(() => {
     void loadDeepseekKey().then(setKey);
@@ -212,14 +255,37 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
     [updateItem],
   );
 
+  /**
+   * Сравнить варианты с картой на фото (src/lib/card-look.ts): самый похожий — первым, а если
+   * он выигрывает с большим отрывом, карта выбирается сама («Похоже на фото»), сменить можно.
+   */
+  const rankOptions = useCallback(
+    async (itemId: string, look: Look[] | null, options: Candidate[]) => {
+      if (!look || options.length < 2) return;
+      updateItem(itemId, () => ({ looking: true }));
+      const likeness = await likenessOf(look, options).catch(() => ({}));
+      const item = itemsNow.current.find((entry) => entry.id === itemId);
+      if (!item) return;
+      const { auto, ...next } = applyLikeness(item, likeness);
+      updateItem(itemId, (current) =>
+        current.status === 'choose' && auto
+          ? { ...next, status: 'ready', pick: auto, byLook: true, price: null }
+          : { ...next, options: rankByLook(current.options, likeness) },
+      );
+      if (auto && item.status === 'choose') void enrich(itemId, auto, item.detected);
+    },
+    [updateItem, enrich],
+  );
+
   const settle = useCallback(
-    (itemId: string, detected: DetectedCard, decision: Decision, failed: boolean) => {
+    (itemId: string, detected: DetectedCard, decision: Decision, failed: boolean, look: Look[] | null) => {
       const next = fromDecision(decision);
       updateItem(itemId, () => ({ ...next, searchFailed: failed }));
       if (next.pick) void enrich(itemId, next.pick, detected);
       if (next.options.length > 0) void describeOptions(itemId, next.options);
+      if (next.options.length > 1) void rankOptions(itemId, look, next.options);
     },
-    [updateItem, enrich, describeOptions],
+    [updateItem, enrich, describeOptions, rankOptions],
   );
 
   // Очередь фото обрабатывается по одному: так видно прогресс и не уходит лишних запросов
@@ -252,10 +318,14 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
             photo: cropPhoto(prepared.canvas, card.box, detected.length === 1),
             keepPhoto: false,
             searchFailed: failed,
+            look: photoLooks(prepared.canvas, card.box, detected.length === 1),
+            looking: false,
           };
           setItems((list) => [...list, item]);
+          itemsNow.current = [...itemsNow.current, item];
           if (item.pick) void enrich(item.id, item.pick, card);
           if (item.options.length > 0) void describeOptions(item.id, item.options);
+          if (item.options.length > 1) void rankOptions(item.id, item.look, item.options);
         }
         updatePhoto(photo.id, { status: 'done' });
       } catch (failure) {
@@ -266,7 +336,7 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
         setPhotos((list) => [...list]); // разбудить эффект ради следующего фото
       }
     })();
-  }, [photos, key, enrich, describeOptions, updatePhoto]);
+  }, [photos, key, enrich, describeOptions, rankOptions, updatePhoto]);
 
   const addPhotos = useCallback((files: File[]) => {
     if (files.length === 0) return;
@@ -277,19 +347,45 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
 
   const choose = (itemId: string, candidate: Candidate) => {
     const item = items.find((entry) => entry.id === itemId);
-    updateItem(itemId, () => ({ status: 'ready', pick: candidate, manual: true, price: null }));
+    updateItem(itemId, () => ({
+      status: 'ready',
+      pick: candidate,
+      manual: true,
+      byLook: false,
+      price: null,
+    }));
     if (item) void enrich(itemId, candidate, item.detected);
   };
 
   /** Добавить карту как напечатана: в базе её нет или ни один вариант не подошёл. */
   const addAsPrinted = (itemId: string) =>
-    updateItem(itemId, () => ({ status: 'ready', pick: null, manual: true, price: null }));
+    updateItem(itemId, () => ({
+      status: 'ready',
+      pick: null,
+      manual: true,
+      byLook: false,
+      price: null,
+    }));
+
+  /** «Другая печать»: снова выбор из тех же вариантов (у карты, выбранной по фото или вручную). */
+  const reopen = (itemId: string) =>
+    updateItem(itemId, (item) =>
+      item.options.length > 0
+        ? {
+            status: 'choose',
+            pick: null,
+            manual: false,
+            byLook: false,
+            price: null,
+          }
+        : {},
+    );
 
   const retry = (itemId: string) => {
     const item = items.find((entry) => entry.id === itemId);
     if (!item) return;
     updateItem(itemId, () => ({ searchFailed: false }));
-    void search(item.detected).then(({ decision, failed }) => settle(itemId, item.detected, decision, failed));
+    void search(item.detected).then(({ decision, failed }) => settle(itemId, item.detected, decision, failed, item.look));
   };
 
   const skip = (itemId: string) => updateItem(itemId, () => ({ status: 'skipped' }));
@@ -361,6 +457,7 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
     addPhotos,
     choose,
     addAsPrinted,
+    reopen,
     retry,
     skip,
     setKeepPhoto,

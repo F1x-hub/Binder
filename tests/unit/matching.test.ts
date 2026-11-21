@@ -194,13 +194,13 @@ describe('оценка и решение', () => {
     expect(decide([candidate({ score: 0.95, weak: true })])).toMatchObject({ status: 'choose' });
   });
 
-  it('с другими печатями той же карты вариантов до шести, при равной оценке свежий сет первым', () => {
+  it('с другими печатями той же карты вариантов больше трёх, при равной оценке свежий сет первым', () => {
     const prints = ['2024-01-01', '2026-09-16', '2025-05-05', '2023-03-03', '2022-02-02', '2021-01-01', '2020-01-01'].map(
       (releaseDate, index) => candidate({ cardId: `p-${index}`, score: 0.6, weak: true, releaseDate }),
     );
     const decision = decide([candidate({ score: 0.9 }), ...prints], 0.55);
     const options = decision.status === 'choose' ? decision.options : [];
-    expect(options).toHaveLength(6);
+    expect(options).toHaveLength(8);
     expect(options.map((option) => option.cardId).slice(0, 3)).toEqual(['sv03-125', 'p-1', 'p-2']);
   });
 

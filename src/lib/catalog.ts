@@ -2,7 +2,7 @@ import { findTwCard, searchTwCandidates } from '@/lib/asia-tw';
 import { cnCatalog } from '@/lib/cn-catalog';
 import { koCatalog, type KoHit } from '@/lib/ko-catalog';
 import { cached } from '@/lib/kv-cache';
-import { catalogFor, type TcgdexLanguage } from '@/lib/languages';
+import { catalogFor, type CardLanguage, type TcgdexLanguage } from '@/lib/languages';
 import { englishNameOf, findJapaneseCard, searchJapaneseCards, type LimitlessCard } from '@/lib/limitless';
 import {
   NAME_FLOOR,
@@ -158,7 +158,7 @@ async function searchByTotal(detected: DetectedCard, lang: TcgdexLanguage): Prom
 }
 
 /** Сколько других печатей карты добавить в варианты. */
-const OTHER_PRINTS = 6;
+const OTHER_PRINTS = 16;
 
 /**
  * Другие печати карты с тем же именем (вместе с «ex», «V» и т. п.), свежие сеты первыми:
@@ -384,4 +384,204 @@ export async function findCandidates(detected: DetectedCard): Promise<Candidate[
     if (twin) top.image = twin.image;
   }
   return candidates;
+}
+
+// ---- Свой поиск: «Ни одна не подходит» в сканере ----
+
+/** Разобранный запрос своего поиска: номер и остальные слова (имя карты и сет). */
+export type CardQuery = { number: string | null; words: string[] };
+
+const simple = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^\p{L}\p{N}]/gu, '');
+
+/**
+ * Номер в запросе: «149», «149/128», «TG05», «SWSH020». Слово из цифр и букв вроде «SV2a»
+ * или «30th» — это код сета, не номер.
+ */
+const NUMBER = /^(?:\d{1,3}|[A-Z]{2,4}\d{2,3})(?:\/\d{1,3})?$/i;
+
+/** Номер — последнее слово, похожее на номер; дробь отрезается («149/128» → «149»). */
+export function parseCardQuery(query: string): CardQuery {
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  let number: string | null = null;
+  for (let index = words.length - 1; index >= 0; index--) {
+    if (NUMBER.test(words[index]!)) {
+      number = words[index]!.split('/')[0]!;
+      words.splice(index, 1);
+      break;
+    }
+  }
+  return { number, words };
+}
+
+/**
+ * Сет в запросе: слово, равное ID сета («30th», «SV2a», «sv08»), или несколько слов подряд,
+ * равных имени сета («Surging Sparks») или начинающих его. Возвращает сет и оставшиеся слова —
+ * имя карты. Слова, которые есть в имени найденного сета («Celebration»), из имени убираются.
+ */
+export function findQuerySet(words: readonly string[], sets: readonly SetBrief[]): { set: SetBrief | null; rest: string[] } {
+  const byId = new Map(sets.map((set) => [set.id.toLowerCase(), set]));
+  let found: SetBrief | null = null;
+  let used: number[] = [];
+  const at = words.findIndex((word) => byId.has(word.toLowerCase()));
+  if (at >= 0) {
+    found = byId.get(words[at]!.toLowerCase())!;
+    used = [at];
+  } else {
+    // Слова подряд, длинные серии первыми: «Surging Sparks» раньше, чем «Sparks»
+    search: for (let length = words.length; length >= 1; length--) {
+      for (let start = 0; start + length <= words.length; start++) {
+        const run = simple(words.slice(start, start + length).join(''));
+        if (run.length < 4) continue;
+        const set = sets.find((item) => {
+          const name = simple(item.name);
+          return name === run || (length >= 2 && name.startsWith(run));
+        });
+        if (set) {
+          found = set;
+          used = Array.from({ length }, (_, offset) => start + offset);
+          break search;
+        }
+      }
+    }
+  }
+  if (!found) return { set: null, rest: [...words] };
+  const inName = new Set(found.name.split(/\s+/).map(simple));
+  return {
+    set: found,
+    rest: words.filter((word, index) => !used.includes(index) && !inName.has(simple(word))),
+  };
+}
+
+/**
+ * Есть ли в имени карты все слова запроса: «Charizard ex» находит «Mega Charizard X ex», но не
+ * просто «Charizard». Латинские слова сверяются целиком, слитные имена (японские, китайские) —
+ * вхождением.
+ */
+export function nameHasWords(cardName: string, query: string): boolean {
+  const words = new Set(cardName.split(/[\s-]+/).map(simple));
+  const whole = simple(cardName);
+  return query
+    .split(/\s+/)
+    .map(simple)
+    .filter(Boolean)
+    .every((word) => words.has(word) || ((word.length >= 4 || scriptOf(word) !== 'latin') && whole.includes(word)));
+}
+
+/** Сколько карт отдаёт свой поиск: интерфейс показывает часть и «Показать ещё». */
+const SEARCH_LIMIT = 48;
+
+/** Ответы своего поиска на время жизни вкладки: тот же запрос не ищется второй раз. */
+const searches = new Map<string, Promise<Candidate[]>>();
+
+/** Карта каталога как вариант на выбор: оценки нет, выбирает человек. */
+async function briefCandidate(brief: CardBrief, lang: TcgdexLanguage, exact: boolean): Promise<Candidate> {
+  const setId = setOf(brief);
+  const set = await catalog.set(setId, lang).catch(() => null);
+  return {
+    cardId: brief.id,
+    setId,
+    name: brief.name,
+    localId: brief.localId,
+    image: brief.image,
+    setName: set?.name ?? setId,
+    printedTotal: set?.cardCount.official ?? null,
+    setCode: set?.abbreviation?.official ?? null,
+    releaseDate: set?.releaseDate ?? null,
+    lang,
+    approximate: !exact,
+    source: 'tcgdex',
+    score: 0,
+  };
+}
+
+/**
+ * Свой поиск по базе: имя (английское или напечатанное), номер, ID или имя сета в любом порядке —
+ * «Pikachu ex 149», «30th 150», «Surging Sparks 238», «メガゲンガー MBG 3». Ищется в каталоге языка
+ * карты; японские — ещё в Limitless (по коду сета и номеру или по японскому имени и номеру),
+ * корейские — по коду сета и номеру (поиска по имени у корейских выгрузок нет), китайские для КНР —
+ * по имени с номером или по сету. Свежие сеты первыми, не больше 48 карт. Ответ хранится на время
+ * жизни вкладки; если база недоступна, ошибка уходит наверх и не запоминается.
+ */
+export function searchCatalog(query: string, language: CardLanguage): Promise<Candidate[]> {
+  const key = `${language}|${query.trim().toLowerCase().replace(/\s+/g, ' ')}`;
+  const known = searches.get(key);
+  if (known) return known;
+  const pending = runSearch(query, language);
+  searches.set(key, pending);
+  pending.catch(() => searches.delete(key));
+  return pending;
+}
+
+async function runSearch(query: string, language: CardLanguage): Promise<Candidate[]> {
+  const { tcgdex, exact } = catalogFor(language);
+  const lang: TcgdexLanguage = tcgdex ?? 'en';
+  const { number, words } = parseCardQuery(query);
+  const sets = await catalog.sets(lang);
+  const { set, rest } = findQuerySet(words, sets);
+  const name = rest.join(' ');
+  const matchesNumber = (card: CardBrief) => !number || sameNumber(card.localId, number);
+
+  let briefs: CardBrief[] = [];
+  if (lang === 'ko') {
+    // Корейские выгрузки знают только код сета и номер
+    const code = set?.id ?? words[0];
+    const hit = code && number ? await koCatalog.find(code, number).catch(() => null) : null;
+    if (hit) briefs = [hit.card];
+  } else if (name.length >= 2 && lang === 'zh-cn') {
+    briefs = number ? (await cnCatalog.search(name, number)).filter((card) => !set || setOf(card) === set.id) : [];
+  } else if (name.length >= 2) {
+    // TCGdex ищется по имени без механики («Charizard»), а слова запроса («ex») сверяются здесь
+    const wanted = searchName(name).length >= 2 ? searchName(name) : name;
+    briefs = (await catalog.prints(wanted, lang)).filter(
+      (card) => matchesNumber(card) && (!set || setOf(card) === set.id) && nameHasWords(card.name, name),
+    );
+  } else if (set) {
+    briefs = (await catalog.set(set.id, lang)).cards.filter(matchesNumber);
+  }
+
+  // Точное имя первым («Charizard ex» раньше «Mega Charizard X ex»), дальше свежие сеты первыми
+  const order = new Map(sets.map((item, index) => [item.id, index]));
+  const exactName = simple(name);
+  const sorted = briefs
+    .filter((card) => !isPocketCard(card))
+    .map((card, index) => ({ card, index, set: order.get(setOf(card)) ?? -1, exact: simple(card.name) === exactName ? 1 : 0 }))
+    .sort((a, b) => b.exact - a.exact || b.set - a.set || a.index - b.index)
+    .slice(0, SEARCH_LIMIT)
+    .map(({ card }) => card);
+  const found = await Promise.all(sorted.map((brief) => briefCandidate(brief, lang, exact)));
+
+  // Японские карты, которых нет в TCGdex (стартовые наборы, свежие сеты), — в Limitless
+  if (lang === 'ja' && number) {
+    const hits: Array<{ set: string; number: string }> = [];
+    const code = set ? null : words.find((word) => /^[A-Za-z][A-Za-z0-9-]{1,7}$/.test(word));
+    if (code) hits.push({ set: code, number });
+    if (scriptOf(name) === 'cjk') hits.push(...(await searchJapaneseCards(searchName(name), number).catch(() => [])).slice(0, 6));
+    for (const hit of hits) {
+      if (found.some((card) => card.setId.toUpperCase() === hit.set.toUpperCase() && sameNumber(card.localId, hit.number)))
+        continue;
+      const card = await findJapaneseCard(hit.set, hit.number).catch(() => null);
+      if (!card) continue;
+      found.push({
+        cardId: `lt:${card.set}-${card.number}`,
+        setId: card.set,
+        name: card.name,
+        englishName: card.englishName,
+        localId: card.number,
+        setName: card.set,
+        printedTotal: null,
+        setCode: card.set,
+        releaseDate: null,
+        lang: 'ja',
+        approximate: false,
+        source: 'limitless',
+        score: 0,
+      });
+    }
+  }
+  return found;
 }

@@ -1,0 +1,69 @@
+.trigger {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  border-radius: var(--radius-card);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: 2px;
+}
+
+/*
+ * Крупная обложка в верхнем слое: слева от маленькой (варианты — в правой колонке, слева фото)
+ * и по её середине, у края окна — справа.
+ * Мышь проходит сквозь неё: иначе обложка под курсором закрывала бы сама себя.
+ */
+.zoom {
+  position-area: left span-all;
+  align-self: anchor-center;
+  position-try-fallbacks: flip-inline;
+  inset: auto;
+  margin: 0 14px;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 24px);
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: visible;
+  pointer-events: none;
+  color: var(--text);
+}
+
+.zoom > * {
+  width: 100%;
+  border-radius: var(--radius-card);
+  box-shadow: var(--card-shadow), var(--shadow);
+}
+
+.zoom img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* На узком экране (поп-ап, телефон) — поверх, по центру, с подложкой */
+@media (max-width: 560px) {
+  .zoom {
+    position-area: none;
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(300px, calc(100vw - 48px));
+    height: fit-content;
+  }
+
+  .zoom::backdrop {
+    background: rgb(0 0 0 / 0.55);
+  }
+}
+
+/* Открыто касанием: касание по картинке или подложке закрывает её */
+.tapped {
+  pointer-events: auto;
+  cursor: zoom-out;
+}
