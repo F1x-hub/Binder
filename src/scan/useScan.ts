@@ -121,7 +121,7 @@ export function photoOnly(item: Pick<ScanItem, 'pick'>): boolean {
 /** Поиск в базе; если база не ответила, карта не найдена, но искать можно снова. */
 async function search(card: DetectedCard): Promise<{ decision: Decision; failed: boolean }> {
   try {
-    return { decision: decide(await findCandidates(card)), failed: false };
+    return { decision: decide(await findCandidates(card), card.confidence), failed: false };
   } catch {
     return { decision: { status: 'not-found' }, failed: true };
   }

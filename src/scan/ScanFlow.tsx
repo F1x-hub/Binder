@@ -4,7 +4,7 @@ import { CARD_FORMS, SIMILAR_FORMS, countLabel, formatCardPrice, rarityLabel } f
 import { LANGUAGE_LABELS, catalogFor, htmlLang } from '@/lib/languages';
 import { candidateLimitless } from '@/lib/limitless';
 import { usePhotoStore } from '@/lib/my-photos';
-import type { Candidate } from '@/lib/matching';
+import { MODEL_TRUST, type Candidate } from '@/lib/matching';
 import { displayNames } from '@/lib/names';
 import { imageFiles } from '@/lib/photo';
 import { DeepseekKeyField } from '@/scan/DeepseekKeyField';
@@ -357,7 +357,11 @@ export function Choice({
   const approximate = item.options.some((option) => option.approximate);
   const subtitle = approximate
     ? 'Язык карты не определён, вот похожие из английской базы'
-    : item.options.length > 1
+    : item.detected.confidence < MODEL_TRUST
+      ? 'ИИ не уверен в прочитанном, вот печати этой карты'
+      : item.options.some((option) => option.weak)
+        ? 'Номер не подтвердился, вот печати этой карты'
+        : item.options.length > 1
       ? `ИИ видит ${countLabel(item.options.length, SIMILAR_FORMS)}`
       : 'Проверь, та ли это карта';
   return (

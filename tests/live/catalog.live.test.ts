@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findCandidates } from '@/lib/catalog';
 import { limitlessImage } from '@/lib/limitless';
-import { decide, type DetectedCard } from '@/lib/matching';
+import { decide, normalizeNumber, type DetectedCard } from '@/lib/matching';
 import { priceFromCard } from '@/lib/prices';
 import { tcgdexApi } from '@/lib/tcgdex';
 
@@ -62,7 +62,12 @@ describe('сопоставление с настоящим TCGdex', () => {
 
   it('номер сверяется строго: по «003» не находится карта под номером 073', async () => {
     const candidates = await findCandidates(read({ name: 'Mega Gengar ex', number: '003', total: '021', setCode: 'mBG' }));
-    expect(candidates.map((candidate) => candidate.cardId)).not.toContain('mep-073');
+    // Карты с номером 3 в английской базе нет. Другие печати Mega Gengar ex (в том числе mep-073)
+    // предлагаются на выбор с пометкой «номер не подтверждён», но за номер 003 не выдаются
+    const confirmed = candidates.filter((candidate) => !candidate.weak);
+    expect(confirmed.map((candidate) => candidate.cardId)).not.toContain('mep-073');
+    expect(confirmed.every((candidate) => normalizeNumber(candidate.localId) === '3')).toBe(true);
+    expect(decide(candidates, 0.95).status).not.toBe('ready');
   });
 
   it('японская карта ищется в японском каталоге по напечатанному имени', async () => {
@@ -122,7 +127,10 @@ describe('сопоставление с настоящим TCGdex', () => {
 
   it('язык не определён — только варианты на выбор из английской базы', async () => {
     const result = await decision({ name: 'Charizard ex', number: '125', total: '197', language: 'other' });
-    expect(result).toMatchObject({ status: 'choose', options: [{ cardId: 'sv03-125', approximate: true }] });
+    expect(result.status).toBe('choose');
+    const options = result.status === 'choose' ? result.options : [];
+    expect(options[0]).toMatchObject({ cardId: 'sv03-125', approximate: true });
+    expect(options.every((option) => option.approximate && !option.weak)).toBe(true);
   });
 
   it('корейские и китайские карты для КНР в базе не ищутся', async () => {

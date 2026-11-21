@@ -44,6 +44,11 @@ export type Candidate = {
   source: 'tcgdex' | 'limitless' | 'asia';
   /** Английское имя японской карты из Limitless */
   englishName?: string | null;
+  /**
+   * Номер не подтверждён поиском: карта нашлась только по числу карт после дроби (searchByTotal)
+   * или это другая печать карты с тем же именем (otherPrints). Такую карту выбирает человек.
+   */
+  weak?: boolean;
   score: number;
 };
 
@@ -193,15 +198,40 @@ export function scoreCandidate(detected: DetectedCard, candidate: Omit<Candidate
 export const READY_SCORE = 0.82;
 
 /**
- * Узнана, если лучший кандидат набрал порог, заметно опережает второго и это именно
- * та карта, а не похожая. Иначе до трёх вариантов на выбор.
+ * Ниже этой уверенности модели карта не узнаётся сама, как бы хорошо ни сошлась с базой:
+ * мелкий номер модель может «вспомнить» по картинке, а не прочитать (Pikachu ex 30th 149/128
+ * прочитан как 276/217 и сошёлся с Ascended Heroes на 0.9).
  */
-export function decide(candidates: Candidate[]): Decision {
-  const sorted = [...candidates].sort((a, b) => b.score - a.score);
+export const MODEL_TRUST = 0.7;
+
+/**
+ * Сколько вариантов показать на выбор: обычно три, а если среди них есть другие печати карты
+ * с тем же именем (номер не подтверждён), — до шести, чтобы нужная печать попала в список.
+ */
+export const MAX_OPTIONS = 6;
+
+/** Лучшие первыми, при равной оценке — из более свежего сета. */
+function byScore(a: Candidate, b: Candidate): number {
+  return b.score - a.score || (b.releaseDate ?? '').localeCompare(a.releaseDate ?? '');
+}
+
+/**
+ * Узнана, если модель уверена в прочитанном, лучший кандидат набрал порог, заметно опережает
+ * второго, его номер подтвердил поиск и это именно та карта, а не похожая. Иначе — варианты на выбор.
+ * confidence — уверенность модели; без неё (тесты сверки) модели доверяем.
+ */
+export function decide(candidates: Candidate[], confidence = 1): Decision {
+  const sorted = [...candidates].sort(byScore);
   const [best, second] = sorted;
   if (!best) return { status: 'not-found' };
-  if (!best.approximate && best.score >= READY_SCORE && (!second || best.score - second.score >= 0.12)) {
+  if (
+    confidence >= MODEL_TRUST &&
+    !best.approximate &&
+    !best.weak &&
+    best.score >= READY_SCORE &&
+    (!second || best.score - second.score >= 0.12)
+  ) {
     return { status: 'ready', pick: best };
   }
-  return { status: 'choose', options: sorted.slice(0, 3) };
+  return { status: 'choose', options: sorted.slice(0, sorted.some((candidate) => candidate.weak) ? MAX_OPTIONS : 3) };
 }

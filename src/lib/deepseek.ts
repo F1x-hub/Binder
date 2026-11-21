@@ -64,7 +64,7 @@ Rules:
 - holo: true for holographic or reverse holo cards, false for regular ones, null if unsure.
 - box: where the card is in the photo, as [left, top, right, bottom] in thousandths of the photo width and height, from 0 to 1000.
 - confidence: from 0 to 1, how sure you are that both name and number are right.
-Never guess a number you cannot read: lower the confidence instead.
+Copy number and total only from what you can actually read on this card. Never fill them in from what you know about the card, its artwork or the set you think it is from: many cards share a name and artwork style across sets. If the total is too small or blurry to read, return null for it. If you cannot read the number clearly, give your best reading of the visible digits and set confidence below 0.5.
 If no card is visible, reply {"cards":[]}.`;
 
 function text(value: unknown): string | null {

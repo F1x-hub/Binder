@@ -7,8 +7,8 @@ import { englishNameOf, findJapaneseCard, searchJapaneseCards, type LimitlessCar
 import {
   NAME_FLOOR,
   READY_SCORE,
+  decide,
   lastWord,
-  localIdVariants,
   nameScore,
   nameVerdict,
   normalizeNumber,
@@ -67,14 +67,25 @@ export const catalog = {
       : lang === 'ko'
         ? koCatalog.card(id)
         : cached(cardCacheKey(id, lang), 30 * DAY, () => tcgdexApi.card(id, lang)),
-  // Ключ «find» новый: старый «search» хранил ответы нестрогого поиска по номеру.
-  // В корейском каталоге поиска по имени нет: у выгрузок нет общего списка карт (см. koCandidates)
-  search: (name: string, localId: string, lang: TcgdexLanguage = 'en'): Promise<CardBrief[]> =>
+  /**
+   * Все печати карт с этим словом в имени (TCGdex), без карт TCG Pocket. Ключ «prints» новый:
+   * под старым «find» лежат пустые ответы строгого фильтра номера, который TCGdex перестал понимать.
+   */
+  prints: (name: string, lang: TcgdexLanguage = 'en'): Promise<CardBrief[]> =>
+    lang === 'zh-cn' || lang === 'ko'
+      ? Promise.resolve([])
+      : cached(cacheKey(lang, 'prints', name.toLowerCase()), 7 * DAY, () => tcgdexApi.searchName(name, lang)).then((cards) =>
+          cards.filter((card) => !isPocketCard(card)),
+        ),
+  /**
+   * Карты с этим словом в имени и этим номером. Номер сверяется здесь, без учёта ведущих нулей:
+   * TCGdex строгого фильтра номера больше не понимает, а нестрогий находит чужие номера.
+   * В корейском каталоге поиска по имени нет: у выгрузок нет общего списка карт (см. koCandidates)
+   */
+  search: async (name: string, localId: string, lang: TcgdexLanguage = 'en'): Promise<CardBrief[]> =>
     lang === 'zh-cn'
       ? cnCatalog.search(name, localId)
-      : lang === 'ko'
-        ? Promise.resolve([])
-        : cached(cacheKey(lang, 'find', `${name.toLowerCase()}:${localId}`), 7 * DAY, () => tcgdexApi.search(name, localId, lang)),
+      : (await catalog.prints(name, lang)).filter((card) => sameNumber(card.localId, localId)),
 };
 
 /** Сет карты: у китайских карт он указан явно (из ID с «.{ID в базе}» его не вывести), у TCGdex — из ID. */
@@ -99,15 +110,16 @@ function namesFor(detected: DetectedCard, lang: TcgdexLanguage): string[] {
   return [...new Set([base, lastWord(base)].filter((name) => name.length >= 2))];
 }
 
-/** Поиск по имени и номеру: сначала полное имя, потом последнее слово, во всех записях номера. */
+/**
+ * Поиск по имени и номеру: сначала полное имя, потом последнее слово. Номер сверяется
+ * без учёта ведущих нулей («057» и «57» — одна карта).
+ */
 async function searchByName(detected: DetectedCard, lang: TcgdexLanguage): Promise<CardBrief[]> {
   for (const name of namesFor(detected, lang)) {
-    for (const localId of localIdVariants(detected.number)) {
-      const found = (await catalog.search(name, localId, lang)).filter(
-        (card) => !isPocketCard(card) && sameNumber(card.localId, detected.number),
-      );
-      if (found.length > 0) return found;
-    }
+    const found = (await catalog.search(name, detected.number, lang)).filter(
+      (card) => !isPocketCard(card) && sameNumber(card.localId, detected.number),
+    );
+    if (found.length > 0) return found;
   }
   return [];
 }
@@ -143,6 +155,28 @@ async function searchByTotal(detected: DetectedCard, lang: TcgdexLanguage): Prom
     if (nameScore(detected, { name: card.name, lang, englishName }) >= NAME_FLOOR) found.push(card);
   }
   return found;
+}
+
+/** Сколько других печатей карты добавить в варианты. */
+const OTHER_PRINTS = 6;
+
+/**
+ * Другие печати карты с тем же именем (вместе с «ex», «V» и т. п.), свежие сеты первыми:
+ * порядок сетов — как в списке сетов каталога, он идёт по дате выхода.
+ */
+export async function otherPrints(detected: DetectedCard, lang: TcgdexLanguage, have: ReadonlySet<string>): Promise<CardBrief[]> {
+  const [name] = namesFor(detected, lang);
+  if (!name || lang === 'zh-cn' || lang === 'ko') return [];
+  const same = (await catalog.prints(name, lang)).filter(
+    (card) => !have.has(card.id) && (nameVerdict(detected, { name: card.name, lang }) ?? 0) >= 0.9,
+  );
+  if (same.length === 0) return [];
+  const order = new Map((await catalog.sets(lang)).map((set, index) => [set.id, index]));
+  return same
+    .map((card, index) => ({ card, index, set: order.get(setOf(card)) ?? -1 }))
+    .sort((a, b) => b.set - a.set || a.index - b.index)
+    .slice(0, OTHER_PRINTS)
+    .map(({ card }) => card);
 }
 
 /**
@@ -256,40 +290,48 @@ export async function findCandidates(detected: DetectedCard): Promise<Candidate[
   const byCode = await searchBySetCode(detected, lang);
   const byName = await searchByName(detected, lang);
   let briefs = [...new Map([...byCode, ...byName].map((card) => [card.id, card])).values()];
-  if (briefs.length === 0) briefs = await searchByTotal(detected, lang);
+  // Номер нашёлся только в сете с тем же числом карт после дроби: номер и число могли быть
+  // прочитаны неверно, такую карту выбирает человек
+  const weak = briefs.length === 0;
+  if (weak) briefs = await searchByTotal(detected, lang);
 
   const foreign = isForeignCatalog(detected, lang);
-  const candidates: Candidate[] = await Promise.all(
-    briefs.slice(0, 8).map(async (brief) => {
-      const setId = setOf(brief);
-      const [set, englishName] = await Promise.all([
-        catalog.set(setId, lang).catch(() => null),
-        // Без английского имени корейскую карту не с чем сверить: имя в каталоге японское.
-        // У китайских карт английское имя только для показа: сверяет напечатанное
-        foreign
-          ? englishNameOf(setId, brief.localId).catch(() => null)
-          : lang === 'zh-cn'
-            ? cnCatalog.englishName(brief.id).catch(() => null)
-            : null,
-      ]);
-      const base = {
-        cardId: brief.id,
-        setId,
-        name: brief.name,
-        localId: brief.localId,
-        image: brief.image,
-        setName: set?.name ?? setId,
-        printedTotal: set?.cardCount.official ?? null,
-        setCode: set?.abbreviation?.official ?? null,
-        releaseDate: set?.releaseDate ?? null,
-        lang,
-        approximate: !exact,
-        source: 'tcgdex' as const,
-        ...(englishName ? { englishName } : {}),
-      };
-      return { ...base, score: scoreCandidate(detected, base) };
-    }),
-  ).then((list) =>
+  /**
+   * weakNumber — номер карты не подтверждён поиском. otherPrint — другая печать того же имени:
+   * у неё число карт после дроби не в счёт, оно прочитано вместе с неподтверждённым номером
+   * (276/217 прибавил бы всем печатям Ascended Heroes и вытеснил нужную).
+   */
+  const toCandidate = async (brief: CardBrief, weakNumber: boolean, otherPrint = false): Promise<Candidate> => {
+    const setId = setOf(brief);
+    const [set, englishName] = await Promise.all([
+      catalog.set(setId, lang).catch(() => null),
+      // Без английского имени корейскую карту не с чем сверить: имя в каталоге японское.
+      // У китайских карт английское имя только для показа: сверяет напечатанное
+      foreign
+        ? englishNameOf(setId, brief.localId).catch(() => null)
+        : lang === 'zh-cn'
+          ? cnCatalog.englishName(brief.id).catch(() => null)
+          : null,
+    ]);
+    const base = {
+      cardId: brief.id,
+      setId,
+      name: brief.name,
+      localId: brief.localId,
+      image: brief.image,
+      setName: set?.name ?? setId,
+      printedTotal: set?.cardCount.official ?? null,
+      setCode: set?.abbreviation?.official ?? null,
+      releaseDate: set?.releaseDate ?? null,
+      lang,
+      approximate: !exact,
+      source: 'tcgdex' as const,
+      ...(englishName ? { englishName } : {}),
+      ...(weakNumber ? { weak: true } : {}),
+    };
+    return { ...base, score: scoreCandidate(otherPrint ? { ...detected, total: null } : detected, base) };
+  };
+  const candidates: Candidate[] = await Promise.all(briefs.slice(0, 8).map((brief) => toCandidate(brief, weak))).then((list) =>
     // Карта с тем же номером, но явно другим именем — чужая: например, код сета прочитан неверно
     list.filter((candidate) => (nameVerdict(detected, candidate) ?? 1) >= NAME_FLOOR),
   );
@@ -321,7 +363,20 @@ export async function findCandidates(detected: DetectedCard): Promise<Candidate[
       } else candidates.push(found);
     }
   }
-  candidates.sort((a, b) => b.score - a.score);
+  // Сама карта не узнаётся (модель не уверена, номер не подтверждён или кандидаты спорные):
+  // в варианты идут и другие печати карты с тем же именем, свежие сеты первыми. Номер мог
+  // быть прочитан неверно, а имя модель читает надёжнее
+  // Похожая карта (язык не узнан) сама не узнаётся никогда, но номер у неё подтверждён: лишние печати не нужны
+  const sure = decide(
+    candidates.map((candidate) => ({ ...candidate, approximate: false })),
+    detected.confidence,
+  );
+  if (!foreign && sure.status !== 'ready') {
+    const have = new Set(candidates.map((candidate) => candidate.cardId));
+    const others = await otherPrints(detected, lang, have).catch(() => []);
+    candidates.push(...(await Promise.all(others.map((brief) => toCandidate(brief, true, true)))));
+  }
+  candidates.sort((a, b) => b.score - a.score || (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''));
   // Узнанная тайваньская карта TCGdex без скана (так у большинства): скан берётся с сайта
   const top = candidates[0];
   if (lang === 'zh-tw' && top && !top.image && top.source === 'tcgdex') {

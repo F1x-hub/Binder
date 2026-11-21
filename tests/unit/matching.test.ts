@@ -185,6 +185,25 @@ describe('оценка и решение', () => {
     expect(decision.status === 'choose' && decision.options).toHaveLength(3);
   });
 
+  it('модель не уверена — выбор, даже если база сошлась идеально', () => {
+    expect(decide([candidate({ score: 1 })], 0.55)).toMatchObject({ status: 'choose', options: [{ cardId: 'sv03-125' }] });
+    expect(decide([candidate({ score: 1 })], 0.7)).toMatchObject({ status: 'ready' });
+  });
+
+  it('номер не подтверждён поиском — выбор', () => {
+    expect(decide([candidate({ score: 0.95, weak: true })])).toMatchObject({ status: 'choose' });
+  });
+
+  it('с другими печатями той же карты вариантов до шести, при равной оценке свежий сет первым', () => {
+    const prints = ['2024-01-01', '2026-09-16', '2025-05-05', '2023-03-03', '2022-02-02', '2021-01-01', '2020-01-01'].map(
+      (releaseDate, index) => candidate({ cardId: `p-${index}`, score: 0.6, weak: true, releaseDate }),
+    );
+    const decision = decide([candidate({ score: 0.9 }), ...prints], 0.55);
+    const options = decision.status === 'choose' ? decision.options : [];
+    expect(options).toHaveLength(6);
+    expect(options.map((option) => option.cardId).slice(0, 3)).toEqual(['sv03-125', 'p-1', 'p-2']);
+  });
+
   it('пусто — не найдена', () => {
     expect(decide([])).toEqual({ status: 'not-found' });
   });
