@@ -44,8 +44,9 @@ export function SidePanels({ cards, activeSet, onPickSet }: Props) {
                   >
                     <span className={styles.setLine}>
                       <span className={styles.setName}>{set.setName}</span>
-                      <span className={styles.setCount}>
+                      <span className={styles.setCount} title={set.secret > 0 ? 'Секретные — карты с номером больше числа карт сета' : undefined}>
                         {set.owned} / {set.total}
+                        {set.secret > 0 && ` · +${set.secret}`}
                       </span>
                     </span>
                     <span className={styles.track} aria-hidden="true">

@@ -1,6 +1,6 @@
 import { energy, type CardFacts } from '@/lib/card-facts';
 import { CONDITIONS, setKey, type Condition, type OwnedCard, type Variant } from '@/lib/collection';
-import { rarityLabel } from '@/lib/format';
+import { pluralWord, rarityLabel, type WordForms } from '@/lib/format';
 import { CARD_LANGUAGES, LANGUAGE_LABELS, type CardLanguage } from '@/lib/languages';
 import { normalizeNumber } from '@/lib/matching';
 import type { LimitlessRef } from '@/lib/limitless';
@@ -272,13 +272,43 @@ export function ownedInSet(cards: readonly AlbumCard[], total: number): number {
   return numbers.size;
 }
 
-export type SetProgress = { key: string; setName: string; owned: number; total: number };
+/**
+ * Сколько разных секретных карт сета есть: номер больше официального числа карт (149/128)
+ * или не число («TG05»). В «N из M» они не входят — их показывают отдельно, «+N секретных».
+ */
+export function secretInSet(cards: readonly AlbumCard[], total: number): number {
+  const ids = new Set<string>();
+  for (const card of cards) {
+    if (!card.localId) continue;
+    const number = Number(normalizeNumber(card.localId));
+    if (!(Number.isInteger(number) && number >= 1 && number <= total)) ids.add(card.localId.toUpperCase());
+  }
+  return ids.size;
+}
+
+/** «0 из 128 карт · +2 секретных»: подпись сета в развороте и сетке. */
+export function setCountLabel(cards: readonly AlbumCard[], total: number): string {
+  const secret = secretInSet(cards, total);
+  return `${ownedInSet(cards, total)} из ${total} карт` + (secret > 0 ? ` · +${secret} ${pluralWord(secret, SECRET_FORMS)}` : '');
+}
+
+const SECRET_FORMS: WordForms = ['секретная', 'секретных', 'секретных'];
+
+export type SetProgress = { key: string; setName: string; owned: number; secret: number; total: number };
 
 /** Прогресс сетов для боковой панели: только сеты, у которых известно число карт. */
 export function setProgress(cards: readonly AlbumCard[]): SetProgress[] {
   return groupBySet(sortCards(cards, 'number')).flatMap((group) =>
     group.printedTotal
-      ? [{ key: group.key, setName: group.setName, owned: ownedInSet(group.cards, group.printedTotal), total: group.printedTotal }]
+      ? [
+          {
+            key: group.key,
+            setName: group.setName,
+            owned: ownedInSet(group.cards, group.printedTotal),
+            secret: secretInSet(group.cards, group.printedTotal),
+            total: group.printedTotal,
+          },
+        ]
       : [],
   );
 }

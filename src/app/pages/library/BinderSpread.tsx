@@ -9,7 +9,7 @@ import {
   activeFilterCount,
   cardPockets,
   checklistPockets,
-  ownedInSet,
+  setCountLabel,
   spreadAt,
   spreadCount,
   spreadLabel,
@@ -130,7 +130,7 @@ export function BinderSpread({ cards, albumSize, filters, sort, setTitle, spread
   const title = setTitle ?? (filtered ? 'Подборка по фильтрам' : 'Весь альбом');
   const setTotal = setMode ? (cards[0]?.printedTotal ?? null) : null;
   const countText = setTotal
-    ? `${ownedInSet(cards, setTotal)} из ${setTotal} карт`
+    ? setCountLabel(cards, setTotal)
     : `${countLabel(cards.length, CARD_FORMS)}${filtered ? ` из ${albumSize}` : ''}`;
   // Язык подписи недостающей карты; у японского сета вне базы имя английское, если Limitless знает перевод
   const missingLang: TcgdexLanguage | undefined = checklistKey
@@ -251,13 +251,14 @@ function BinderPage({
     <ul className={styles.page} aria-label={empty ? 'Пустая страница' : `Страница ${page}`}>
       {pockets.map((pocket, slot) => {
         if (pocket.kind === 'card') {
-          // Закладка: начало сета — с чертой, продолжение сета в начале страницы — бледнее
+          // Закладка: черта над каждой картой сета, имя сета — у первой карты сета (жирно)
+          // и у первой карты страницы, если сет продолжается (бледнее)
           const starts = setStarts?.has(pocket.key) ?? false;
           const tab = setStarts && (starts || slot === 0) ? pocket.card.setName : null;
           return (
             <li key={pocket.key} className={styles.slot}>
               {setStarts && (
-                <span className={cx(styles.setTab, starts && styles.setStart)} title={tab ?? undefined}>
+                <span className={cx(styles.setTab, styles.inSet, starts && styles.setStart)} title={pocket.card.setName}>
                   {tab}
                 </span>
               )}

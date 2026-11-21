@@ -1,5 +1,5 @@
 import { CARD_FORMS, countLabel } from '@/lib/format';
-import { SORT_LABELS, groupBySet, ownedInSet, type LibrarySort } from '@/lib/library-filters';
+import { SORT_LABELS, groupBySet, setCountLabel, type LibrarySort } from '@/lib/library-filters';
 import type { CardView } from '@/lib/useCardViews';
 import { AlbumCard } from './AlbumCard';
 import styles from './CardGrid.module.css';
@@ -38,7 +38,7 @@ export function CardGrid({ cards, sort, uid, onReset }: Props) {
             <h2 className={styles.title}>{group.setName}</h2>
             <span className={styles.muted}>
               {group.printedTotal && group.note === null
-                ? `${ownedInSet(group.cards, group.printedTotal)} из ${group.printedTotal} карт`
+                ? setCountLabel(group.cards, group.printedTotal)
                 : countLabel(group.cards.length, CARD_FORMS)}
             </span>
             {group.note && <span className={styles.muted}>{group.note}</span>}

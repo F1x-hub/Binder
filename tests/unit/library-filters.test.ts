@@ -13,6 +13,7 @@ import {
   matchesQuery,
   mostValuable,
   parseLibraryState,
+  setCountLabel,
   setProgress,
   sortCards,
   spreadAt,
@@ -230,10 +231,18 @@ describe('сеты', () => {
   it('прогресс сета: разные номера до официального числа карт', () => {
     const secret = card('sv03-210', { localId: '210' });
     expect(setProgress([...album, secret])).toEqual([
-      { key: 'en:sv03', setName: 'Obsidian Flames', owned: 2, total: 197 },
-      { key: 'ja:SV2a', setName: 'ポケモンカード151', owned: 1, total: 165 },
-      { key: 'x:ja:MBG', setName: 'MBG', owned: 1, total: 21 },
+      { key: 'en:sv03', setName: 'Obsidian Flames', owned: 2, secret: 2, total: 197 },
+      { key: 'ja:SV2a', setName: 'ポケモンカード151', owned: 1, secret: 0, total: 165 },
+      { key: 'x:ja:MBG', setName: 'MBG', owned: 1, secret: 0, total: 21 },
     ]);
+  });
+
+  it('подпись сета: секретные карты отдельно', () => {
+    const first = card('sv03-210', { localId: '210' });
+    const second = card('sv03-211', { localId: '211' });
+    expect(setCountLabel([first, second], 197)).toBe('0 из 197 карт · +2 секретных');
+    expect(setCountLabel([first], 197)).toBe('0 из 197 карт · +1 секретная');
+    expect(setCountLabel([], 197)).toBe('0 из 197 карт');
   });
 
   it('дороже всего — только карты с ценой', () => {
