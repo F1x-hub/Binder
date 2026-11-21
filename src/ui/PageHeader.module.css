@@ -1,14 +1,20 @@
 .header {
   --focus-ring: var(--on-header);
+  background: var(--header);
+  color: var(--on-header);
+  border-bottom: var(--border) solid var(--header-line);
+}
+
+/* Та же ширина и те же поля, что у содержимого страницы (AppShell.module.css): логотип над левым краем страницы */
+.inner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 28px;
+  max-width: 1360px;
   min-height: 68px;
+  margin: 0 auto;
   padding: 10px 32px;
-  background: var(--header);
-  color: var(--on-header);
-  border-bottom: var(--border) solid var(--header-line);
 }
 
 .brand {

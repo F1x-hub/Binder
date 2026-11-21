@@ -142,3 +142,25 @@
   line-height: 1.5;
   color: var(--muted);
 }
+
+/* Альбом не загрузился: причина вместо стоимости и недавних карт */
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+}
+
+.errorTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.errorText {
+  font-size: 13px;
+  color: var(--muted);
+}

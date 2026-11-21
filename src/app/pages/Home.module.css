@@ -1,0 +1,207 @@
+/* Главная вкладки: широкая колонка — лента друзей, правая — своя коллекция. На узком экране друг под другом. */
+.layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.feed {
+  flex: 999 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.side {
+  flex: 1 1 340px;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Когда колонки встали друг под другом, своя коллекция идёт первой: с неё начинается узкий экран */
+@media (max-width: 960px) {
+  .side {
+    order: -1;
+  }
+}
+
+/* Панель как у ленты (FeedPanel.module.css) */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+  min-width: 0;
+}
+
+.panelHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.panelTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.panelLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.value {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: round(calc(40px * var(--display-scale)), 1px);
+  line-height: 1.1;
+  letter-spacing: var(--display-tracking);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.wide {
+  width: 100%;
+}
+
+/* ---------- Недавно добавлены ---------- */
+
+.recentGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recentCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-card);
+}
+
+.recentCard:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.price {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Колоды ---------- */
+
+.deckList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deck {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.deck:hover {
+  background: color-mix(in srgb, var(--text) 8%, var(--surface-2));
+}
+
+.deck:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.deck svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.deckName {
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.deckSize {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---------- Заглушка ленты ---------- */
+
+.feedRows {
+  display: flex;
+  flex-direction: column;
+}
+
+.feedRow {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+}
+
+.feedRow + .feedRow {
+  border-top: var(--border) solid var(--line);
+}
+
+.feedRowText {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.feedThumbs {
+  display: grid;
+  grid-template-columns: repeat(3, 64px);
+  gap: 8px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

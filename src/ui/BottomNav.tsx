@@ -1,15 +1,14 @@
 import type { ComponentType } from 'react';
 import { appUrl, openAppFromPopup } from '@/lib/tabs';
 import { cx } from '@/ui/cx';
-import { AlbumIcon, BattleIcon, DecksIcon, FriendsIcon, HomeIcon } from '@/ui/Icons';
+import { AlbumIcon, DecksIcon, FriendsIcon, HomeIcon } from '@/ui/Icons';
 import styles from './BottomNav.module.css';
 
-/** Разделы, которые открываются во вкладке приложения. */
+/** Разделы, которые открываются во вкладке приложения. «Боя» нет, пока по игре нет решения. */
 const TAB_SECTIONS: Array<{ path: string; label: string; Icon: ComponentType }> = [
   { path: '/library', label: 'Альбом', Icon: AlbumIcon },
   { path: '/decks', label: 'Колоды', Icon: DecksIcon },
   { path: '/friends', label: 'Друзья', Icon: FriendsIcon },
-  { path: '/battle', label: 'Бой', Icon: BattleIcon },
 ];
 
 /** Нижнее меню поп-апа: «Главная» здесь же, остальное во вкладке. */

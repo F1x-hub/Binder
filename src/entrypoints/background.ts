@@ -8,7 +8,7 @@ import { openApp } from '@/lib/tabs';
 /**
  * Интерактивный вход. Вкладке и открытому поп-апу отдаём токен: в Firebase они входят сами
  * и сразу видят результат. Если поп-ап закрылся, пока Chrome показывал окно согласия,
- * входим здесь и открываем альбом во вкладке.
+ * входим здесь и открываем главную вкладки.
  */
 async function handleTokenRequest(fromTab: boolean): Promise<Reply> {
   const token = await googleToken(true);
@@ -16,7 +16,7 @@ async function handleTokenRequest(fromTab: boolean): Promise<Reply> {
   const popups = await browser.runtime.getContexts({ contextTypes: [browser.runtime.ContextType.POPUP] });
   if (popups.length > 0) return { ok: true, token };
   await signInWithGoogleToken(token);
-  await openApp('/library');
+  await openApp('/home');
   return { ok: true };
 }
 

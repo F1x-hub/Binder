@@ -22,7 +22,7 @@ type Props = {
 };
 
 export function Home({ onScan, onSettings }: Props) {
-  const { cards, ready } = useOwned();
+  const { cards, ready, error, retry } = useOwned();
   const views = useCardViews(cards, ready);
   const totals = collectionTotals(views ?? cards.map((card) => ({ ...card, price: null })));
   const recent = newestFirst(views ?? []).slice(0, 4);
@@ -53,25 +53,36 @@ export function Home({ onScan, onSettings }: Props) {
         }
       />
       <main className={styles.main}>
-        <section className={styles.value}>
-          <div className={styles.label}>Стоимость коллекции</div>
-          <div className={styles.amount}>{formatUsd(totals.value, true)}</div>
-          {totals.euro > 0 && (
-            <div className={styles.label}>и {formatCardPrice({ u: null, e: totals.euro })} по ценам Cardmarket</div>
-          )}
-          <div className={styles.stats}>
-            <Stat n={totals.copies} forms={CARD_FORMS} />
-            <span className={styles.divider} aria-hidden="true" />
-            <Stat n={totals.sets} forms={SET_FORMS} />
-            {/* Пока колоды не пришли, их число не показываем, чтобы не мелькал «0 колод» */}
-            {decks.status === 'ready' && (
-              <>
-                <span className={styles.divider} aria-hidden="true" />
-                <Stat n={decks.decks.length} forms={DECK_FORMS} />
-              </>
+        {error ? (
+          // Альбом не загрузился: причина и «Обновить» вместо нулей и вечного «Загружаем альбом…»
+          <section className={styles.error} role="alert">
+            <h2 className={styles.errorTitle}>Альбом не загрузился</h2>
+            <p className={styles.errorText}>{error}</p>
+            <Button variant="link" onClick={retry}>
+              Обновить
+            </Button>
+          </section>
+        ) : (
+          <section className={styles.value}>
+            <div className={styles.label}>Стоимость коллекции</div>
+            <div className={styles.amount}>{formatUsd(totals.value, true)}</div>
+            {totals.euro > 0 && (
+              <div className={styles.label}>и {formatCardPrice({ u: null, e: totals.euro })} по ценам Cardmarket</div>
             )}
-          </div>
-        </section>
+            <div className={styles.stats}>
+              <Stat n={totals.copies} forms={CARD_FORMS} />
+              <span className={styles.divider} aria-hidden="true" />
+              <Stat n={totals.sets} forms={SET_FORMS} />
+              {/* Пока колоды не пришли, их число не показываем, чтобы не мелькал «0 колод» */}
+              {decks.status === 'ready' && (
+                <>
+                  <span className={styles.divider} aria-hidden="true" />
+                  <Stat n={decks.decks.length} forms={DECK_FORMS} />
+                </>
+              )}
+            </div>
+          </section>
+        )}
 
         <div className={styles.scan}>
           <Button start={<ScanIcon stroke={1.9} />} onClick={() => onScan()}>
@@ -80,54 +91,56 @@ export function Home({ onScan, onSettings }: Props) {
           <div className={styles.hint}>или перетащи фото прямо в это окно</div>
         </div>
 
-        <section className={styles.recent}>
-          <div className={styles.recentHead}>
-            <h2 className={styles.recentTitle}>Недавно добавлены</h2>
-            <a
-              className={styles.textLink}
-              href={appUrl('/library')}
-              onClick={(event) => {
-                event.preventDefault();
-                void openAppFromPopup('/library');
-              }}
-            >
-              Открыть альбом
-            </a>
-          </div>
-          {recent.length > 0 ? (
-            <div className={styles.recentGrid}>
-              {recent.map((card) => {
-                const path = `/card/${encodeURIComponent(card.docId)}`;
-                return (
-                  <a
-                    key={card.docId}
-                    className={styles.recentCard}
-                    href={appUrl(path)}
-                    aria-label={`${displayNames(card.name, card.englishName).primary}: открыть карточку`}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      void openAppFromPopup(path);
-                    }}
-                  >
-                    <CardImage
-                      image={card.image}
-                      limitless={card.limitless}
-                      thumb={card.thumb}
-                      name={displayNames(card.name, card.englishName).primary}
-                      number={card.localId}
-                      lang={card.lang}
-                    />
-                    <span className={styles.recentPrice}>{formatCardPrice(card.price)}</span>
-                  </a>
-                );
-              })}
+        {!error && (
+          <section className={styles.recent}>
+            <div className={styles.recentHead}>
+              <h2 className={styles.recentTitle}>Недавно добавлены</h2>
+              <a
+                className={styles.textLink}
+                href={appUrl('/library')}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void openAppFromPopup('/library');
+                }}
+              >
+                Открыть альбом
+              </a>
             </div>
-          ) : (
-            <p className={styles.empty}>
-              {ready ? 'Здесь появятся карточки, которые ты отсканируешь.' : 'Загружаем альбом…'}
-            </p>
-          )}
-        </section>
+            {recent.length > 0 ? (
+              <div className={styles.recentGrid}>
+                {recent.map((card) => {
+                  const path = `/card/${encodeURIComponent(card.docId)}`;
+                  return (
+                    <a
+                      key={card.docId}
+                      className={styles.recentCard}
+                      href={appUrl(path)}
+                      aria-label={`${displayNames(card.name, card.englishName).primary}: открыть карточку`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void openAppFromPopup(path);
+                      }}
+                    >
+                      <CardImage
+                        image={card.image}
+                        limitless={card.limitless}
+                        thumb={card.thumb}
+                        name={displayNames(card.name, card.englishName).primary}
+                        number={card.localId}
+                        lang={card.lang}
+                      />
+                      <span className={styles.recentPrice}>{formatCardPrice(card.price)}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className={styles.empty}>
+                {ready ? 'Здесь появятся карточки, которые ты отсканируешь.' : 'Загружаем альбом…'}
+              </p>
+            )}
+          </section>
+        )}
       </main>
       <BottomNav />
     </div>

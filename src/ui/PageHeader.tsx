@@ -4,52 +4,75 @@ import { Link, useLocation } from 'wouter';
 import { HeaderSearch } from '@/app/HeaderSearch';
 import { useIsAdmin } from '@/lib/admin';
 import { useAuth } from '@/lib/auth-state';
+import { MembershipProvider, useMembership } from '@/lib/membership-state';
 import { leaveBinder } from '@/settings/leave';
 import { Avatar } from '@/ui/Avatar';
 import { Brand } from '@/ui/Brand';
 import { cx } from '@/ui/cx';
 import { ChevronDownIcon, ShieldIcon, SignOutIcon, SlidersIcon, UserIcon } from '@/ui/Icons';
 import { menuFocusTarget } from '@/ui/menu-keys';
+import { SECTIONS, sectionActive } from '@/ui/sections';
 import styles from './PageHeader.module.css';
 
-/** Разделы вкладки и маршруты, при которых раздел подсвечен. */
-const SECTIONS = [
-  { path: '/library', label: 'Альбом', match: ['/library', '/card/', '/scan'] },
-  { path: '/decks', label: 'Колоды', match: ['/decks'] },
-  { path: '/friends', label: 'Друзья', match: ['/friends', '/u/'] },
-  { path: '/battle', label: 'Бой', match: ['/battle'] },
-];
-
+/**
+ * Шапка вкладки. Навигация и поиск видны только участнику клуба: до входа и до вступления
+ * они вели бы на тот же экран входа. Меню аккаунта видно сразу после входа: из него выходят.
+ * Внутренность шапки — по ширине содержимого страницы (1360 px), фон — во всю ширину.
+ */
 export function PageHeader() {
   const [location] = useLocation();
   const auth = useAuth();
   return (
     <header className={styles.header}>
-      <Link href="/library" className={styles.brand}>
-        <Brand size="page" />
-      </Link>
-      <nav aria-label="Разделы" className={styles.nav}>
-        {SECTIONS.map(({ path, label, match }) => {
-          const active = match.some((prefix) => location.startsWith(prefix));
-          return (
-            <Link
-              key={path}
-              href={path}
-              className={cx(styles.navLink, active && styles.active)}
-              aria-current={active ? 'page' : undefined}
-            >
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className={styles.end}>
-        <HeaderSearch />
-        {auth.status === 'signed-in' && <AccountMenu user={auth.user} location={location} />}
-        {/* Пока сессия восстанавливается, место под меню занято: поиск не прыгает */}
-        {auth.status === 'loading' && <span className={styles.menuPlaceholder} aria-hidden="true" />}
+      <div className={styles.inner}>
+        <Link href="/home" className={styles.brand} aria-label="Binder: главная">
+          <Brand size="page" />
+        </Link>
+        {auth.status === 'signed-in' ? (
+          // Членство — та же подписка на свой документ, что у AuthGate и поиска: Firestore слушает её один раз
+          <MembershipProvider key={auth.user.uid} uid={auth.user.uid}>
+            <MemberHeader user={auth.user} location={location} />
+          </MembershipProvider>
+        ) : (
+          auth.status === 'loading' && (
+            <div className={styles.end}>
+              {/* Пока сессия восстанавливается, место под меню занято: шапка не прыгает */}
+              <span className={styles.menuPlaceholder} aria-hidden="true" />
+            </div>
+          )
+        )}
       </div>
     </header>
+  );
+}
+
+function MemberHeader({ user, location }: { user: User; location: string }) {
+  const membership = useMembership();
+  const member = membership.status === 'member';
+  return (
+    <>
+      {member && (
+        <nav aria-label="Разделы" className={styles.nav}>
+          {SECTIONS.map(({ path, label, match }) => {
+            const active = sectionActive(match, location, user.uid);
+            return (
+              <Link
+                key={path}
+                href={path}
+                className={cx(styles.navLink, active && styles.active)}
+                aria-current={active ? 'page' : undefined}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+      <div className={styles.end}>
+        {member && <HeaderSearch />}
+        <AccountMenu user={user} location={location} />
+      </div>
+    </>
   );
 }
 
