@@ -26,3 +26,132 @@
 .action {
   margin-top: 8px;
 }
+
+/*
+ * Вариант «страница»: весь экран раздела, по центру — картинка, заголовок, пояснение
+ * и одна главная кнопка. Без панели, прямо на фоне страницы.
+ */
+.page {
+  min-height: clamp(360px, 70vh, 680px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-block: 24px;
+  text-align: center;
+}
+
+.art {
+  width: min(260px, 68vw);
+  margin-bottom: 14px;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.pageTitle {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: round(calc(26px * var(--display-scale)), 1px);
+  line-height: 1.2;
+  letter-spacing: var(--display-tracking);
+  text-wrap: balance;
+}
+
+.pageText {
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.pageAction {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Главная кнопка по своему тексту, а не во всю ширину (у Button primary width: 100%) */
+.page .pageAction > * {
+  width: auto;
+  min-width: 220px;
+}
+
+/* Фигуры картинки: толщина линий как у рамок темы и не растёт вместе с картинкой */
+.svg * {
+  vector-effect: non-scaling-stroke;
+  stroke-width: var(--border);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sheet {
+  fill: var(--surface);
+  stroke: var(--line);
+  rx: var(--radius-inner);
+}
+
+.pocket {
+  fill: none;
+  stroke: var(--line);
+  stroke-dasharray: 3 3;
+  rx: calc(var(--radius-card) / 2);
+}
+
+.ring {
+  fill: var(--bg);
+  stroke: var(--line);
+}
+
+.card {
+  fill: var(--surface);
+  stroke: var(--muted);
+  rx: var(--radius-card);
+}
+
+.cardBack {
+  fill: var(--surface-2);
+  stroke: var(--line);
+  rx: var(--radius-card);
+}
+
+.cardWindow {
+  fill: var(--surface-2);
+  stroke: none;
+  rx: calc(var(--radius-card) / 2);
+}
+
+.cardLine {
+  stroke: var(--line);
+}
+
+.avatar {
+  fill: var(--surface);
+  stroke: var(--line);
+}
+
+.head {
+  fill: var(--surface-2);
+  stroke: none;
+}
+
+.badge {
+  fill: var(--selected);
+  stroke: none;
+}
+
+.badgeMark {
+  stroke: var(--on-selected);
+  stroke-width: 2px;
+}
+
+.badgeDot {
+  fill: var(--on-selected);
+  stroke: none;
+}

@@ -80,12 +80,191 @@
   gap: 20px;
 }
 
-.loading {
-  padding: 24px;
+/*
+ * Заглушки загрузки (AlbumSkeleton в Library.tsx). Размеры повторяют панель альбома
+ * (library/Panel.module.css), разворот (BinderSpread), сетку (CardGrid) и список (CardList):
+ * меняется их раскладка — меняются и эти правила.
+ */
+.skeletonPanel {
+  composes: panel from './library/Panel.module.css';
+}
+
+.skeletonHead {
+  composes: head from './library/Panel.module.css';
+}
+
+.skeletonTitle {
+  font-size: 16px;
+}
+
+.skeletonSmall {
+  font-size: 13px;
+}
+
+.skeletonPager {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.skeletonSpreadWrap {
+  container-type: inline-size;
+}
+
+.skeletonSpread {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.skeletonPage {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 18px 14px;
+}
+
+.skeletonSlot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.skeletonCaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.skeletonSpine {
+  position: relative;
+  flex: 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.skeletonSpine::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--border);
+  transform: translateX(-50%);
+  background: var(--line);
+}
+
+.skeletonRing {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--line);
+}
+
+@container (width < 666px) {
+  .skeletonSpine {
+    flex-basis: 100%;
+    flex-direction: row;
+    height: 18px;
+  }
+
+  .skeletonSpine::before {
+    top: 50%;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: var(--border);
+    transform: translateY(-50%);
+  }
+}
+
+.skeletonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 18px 16px;
+}
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+}
+
+.skeletonListHead {
+  padding-bottom: 10px;
+  border-bottom: var(--border) solid var(--line);
+}
+
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: var(--border) solid var(--line);
+}
+
+.skeletonRow:last-child {
+  border-bottom: none;
+}
+
+.skeletonRowText {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skeletonRowPrice {
+  margin-left: auto;
+}
+
+/* Боковая колонка: как SidePanels */
+.skeletonSide {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.skeletonSidePanel {
+  padding: 20px;
   border-radius: var(--radius-panel);
   background: var(--surface);
   border: var(--border) solid var(--line);
   box-shadow: var(--panel-shadow);
-  font-size: 14px;
-  color: var(--muted);
+}
+
+.skeletonSideHeading {
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.skeletonSetRow {
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding-block: 6px;
+  box-sizing: content-box;
+  font-size: 13px;
+}
+
+.skeletonSetLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
 }

@@ -1,0 +1,70 @@
+/*
+ * Заглушка загрузки. Цвет — полупрозрачный цвет текста темы: он виден и на фоне страницы,
+ * и на панели (в Ретро фон страницы и «поверхность 2» совпадают, поэтому не surface-2).
+ */
+.skeleton {
+  --skeleton-fill: color-mix(in srgb, var(--text) 9%, transparent);
+  display: block;
+  flex-shrink: 0;
+  max-width: 100%;
+  border-radius: var(--radius-inner);
+  background: var(--skeleton-fill);
+}
+
+:global([data-theme='retro']) .skeleton {
+  --skeleton-fill: color-mix(in srgb, var(--text) 22%, transparent);
+}
+
+/* Строка текста: занимает ровно строку окружающего шрифта, сама полоса — по высоте букв */
+.text {
+  width: 10em;
+  height: 0.62lh;
+  margin-block: 0.19lh;
+  border-radius: min(var(--radius-inner), 4px);
+}
+
+.block {
+  width: 100%;
+  height: 44px;
+}
+
+.card {
+  width: 100%;
+  aspect-ratio: 63 / 88;
+  border-radius: var(--radius-card);
+}
+
+.circle {
+  width: 40px;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+/* Мягкая пульсация; при «уменьшить движение» заглушки стоят ровно */
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+
+  /* В Ретро без плавных переливов: яркость меняется рывками, как на старом экране */
+  :global([data-theme='retro']) .skeleton {
+    animation-duration: 1.8s;
+    animation-timing-function: steps(2, jump-none);
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
