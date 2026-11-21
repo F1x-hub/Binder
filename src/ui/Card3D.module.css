@@ -94,48 +94,21 @@
 }
 
 /*
- * Торец: четыре полоски по краям, повёрнутые поперёк карты. На скруглённых углах их нет —
- * там полоска торчала бы за угол. В середине тёмный слой, как у настоящего картона карт.
+ * Торец: стопка слоёв той же формы и скругления, что и грани, между лицом и рубашкой
+ * (--d от −0.5 до 0.5 толщины). Сбоку слои сливаются в сплошное ребро по всему контуру,
+ * углы тоже, и грани не выглядят двумя картинками, наложенными друг на друга. Средние слои
+ * темнее — как чёрная прослойка в картоне настоящих карт. Анфас слои закрыты гранями.
  */
-.edge {
+.layer {
   position: absolute;
-  background: #d9d9dc;
+  inset: 0;
+  border-radius: 4.6% / 3.3%;
+  background: #d4d4d8;
+  transform: translateZ(calc(var(--t) * var(--d)));
 }
 
-.left,
-.right {
-  top: var(--r);
-  width: var(--t);
-  height: calc(var(--h) - 2 * var(--r));
-  background: linear-gradient(90deg, #e4e4e7, #3a3a40 38%, #3a3a40 62%, #e4e4e7);
-}
-
-.left {
-  left: calc(var(--t) / -2);
-  transform: rotateY(90deg);
-}
-
-.right {
-  left: calc(var(--w) - var(--t) / 2);
-  transform: rotateY(90deg);
-}
-
-.top,
-.bottom {
-  left: var(--r);
-  width: calc(var(--w) - 2 * var(--r));
-  height: var(--t);
-  background: linear-gradient(180deg, #e4e4e7, #3a3a40 38%, #3a3a40 62%, #e4e4e7);
-}
-
-.top {
-  top: calc(var(--t) / -2);
-  transform: rotateX(90deg);
-}
-
-.bottom {
-  top: calc(var(--h) - var(--t) / 2);
-  transform: rotateX(90deg);
+.core {
+  background: #3a3a40;
 }
 
 /* Блик: пятно света там, куда карта отражает свет, плюс полоса, как у TiltCard */
@@ -229,23 +202,9 @@
   filter: drop-shadow(8px 8px 0 #0f380f);
 }
 
-:global([data-theme='retro']) .left,
-:global([data-theme='retro']) .right,
-:global([data-theme='retro']) .top,
-:global([data-theme='retro']) .bottom {
+:global([data-theme='retro']) .layer {
+  border-radius: 0;
   background: #0f380f;
-}
-
-:global([data-theme='retro']) .left,
-:global([data-theme='retro']) .right {
-  top: 0;
-  height: var(--h);
-}
-
-:global([data-theme='retro']) .top,
-:global([data-theme='retro']) .bottom {
-  left: 0;
-  width: var(--w);
 }
 
 :global([data-theme='retro']) .control {

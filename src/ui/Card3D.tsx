@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
 import {
   IDENTITY,
   applyDrag,
@@ -24,6 +24,9 @@ import styles from './Card3D.module.css';
 
 /** Общая рубашка современных карт Pokémon TCG, лежит в расширении (public/card-back.webp) */
 export const CARD_BACK = '/card-back.webp';
+
+/** Слои торца по толщине карты: от −0.5 (у рубашки) до 0.5 (у лица), без самих граней. */
+const EDGE_LAYERS = [-0.42, -0.28, -0.14, 0, 0.14, 0.28, 0.42];
 
 type Props = {
   image?: string;
@@ -292,10 +295,15 @@ export function Card3D({ image, limitless, thumb, name, number, holo = false, cl
               <img src={CARD_BACK} alt="" className={styles.backImage} draggable={false} />
               <span className={styles.sheen} />
             </div>
-            <span className={cx(styles.edge, styles.left)} aria-hidden="true" />
-            <span className={cx(styles.edge, styles.right)} aria-hidden="true" />
-            <span className={cx(styles.edge, styles.top)} aria-hidden="true" />
-            <span className={cx(styles.edge, styles.bottom)} aria-hidden="true" />
+            {/* Торец — стопка тонких слоёв той же формы, что и грани: сбоку они сливаются в сплошное ребро вместе со скруглёнными углами */}
+            {EDGE_LAYERS.map((depth) => (
+              <span
+                key={depth}
+                className={cx(styles.layer, Math.abs(depth) < 0.3 && styles.core)}
+                style={{ '--d': depth } as CSSProperties}
+                aria-hidden="true"
+              />
+            ))}
           </div>
         </div>
       </div>
