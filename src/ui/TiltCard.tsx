@@ -24,14 +24,17 @@ type Props = {
  */
 export function TiltCard({ image, limitless, thumb, name, number, holo = false, onOpen, className }: Props) {
   const ref = useRef<HTMLElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(false);
 
+  // Курсор ловит неподвижная сцена, а не сама карта: повёрнутая карта у края уходит из-под
+  // курсора, и если слушать её, она дёргается туда-обратно (наклон → уход → покой → снова наклон).
   const move = (event: PointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return;
-    const box = ref.current?.getBoundingClientRect();
-    if (!box) return;
-    const x = (event.clientX - box.left) / box.width;
-    const y = (event.clientY - box.top) / box.height;
+    const box = stage.current?.getBoundingClientRect();
+    if (!box || !ref.current) return;
+    const x = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
+    const y = Math.min(1, Math.max(0, (event.clientY - box.top) / box.height));
     const style = ref.current!.style;
     style.setProperty('--ry', `${((x - 0.5) * 24).toFixed(2)}deg`);
     style.setProperty('--rx', `${((0.5 - y) * 18).toFixed(2)}deg`);
@@ -55,12 +58,10 @@ export function TiltCard({ image, limitless, thumb, name, number, holo = false, 
   );
   const common = {
     className: cx(styles.card, active && styles.active, onOpen && styles.clickable),
-    onPointerMove: move,
-    onPointerLeave: leave,
   };
 
   return (
-    <div className={cx(styles.stage, className)}>
+    <div ref={stage} className={cx(styles.stage, className)} onPointerMove={move} onPointerLeave={leave}>
       {onOpen ? (
         <button
           ref={ref as RefObject<HTMLButtonElement>}
