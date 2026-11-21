@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { usePageTitle } from '@/app/usePageTitle';
 import { useAuth } from '@/lib/auth-state';
@@ -21,11 +21,13 @@ import { displayNames } from '@/lib/names';
 import { useCardViews, type CardView } from '@/lib/useCardViews';
 import { deckLines, ruleName, useDeckInfo } from '@/lib/useDeckInfo';
 import { useDecks } from '@/lib/useDecks';
+import { Button } from '@/ui/Button';
 import { CardImage } from '@/ui/CardImage';
 import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/EmptyState';
 import { BackIcon, CheckIcon, CloseIcon, MinusIcon, PencilIcon, PlusIcon, SearchIcon } from '@/ui/Icons';
-import { CheckMark, DeckChecks, DeckTrack, DeleteDeckButton } from './DeckParts';
+import { Skeleton, SkeletonArea } from '@/ui/Skeleton';
+import { CheckMark, DeckChecks, DeckTrack, DeleteDeckButton, NARROW_DECK_QUERY, useMediaQuery } from './DeckParts';
 import page from './Page.module.css';
 import styles from './Decks.module.css';
 
@@ -35,34 +37,72 @@ export function DeckBuilder() {
   const auth = useAuth();
   const uid = auth.status === 'signed-in' ? auth.user.uid : null;
   const decksState = useDecks(uid);
-  const { cards, ready } = useOwned();
+  const { cards, ready, error: albumError, retry } = useOwned();
   const views = useCardViews(cards, ready);
   const deck = decksState.status === 'ready' ? (decksState.decks.find((item) => item.id === id) ?? null) : undefined;
   usePageTitle(deck ? deck.name : 'Колода');
 
+  const backLink = (
+    <Link href="/decks" className={styles.textLink}>
+      Вернуться к колодам
+    </Link>
+  );
+
   if (decksState.status === 'error') {
     return (
-      <p role="alert" className={styles.error}>
-        Колода не загрузилась: {decksState.message}
-      </p>
+      <EmptyState variant="page" tone="error" title="Колода не загрузилась" action={backLink}>
+        {decksState.message}
+      </EmptyState>
     );
   }
   if (deck === null) {
     return (
-      <EmptyState
-        title="Такой колоды нет"
-        action={
-          <Link href="/decks" className={styles.textLink}>
-            Вернуться к колодам
-          </Link>
-        }
-      >
+      <EmptyState variant="page" art="decks" title="Такой колоды нет" action={backLink}>
         Возможно, её только что удалили.
       </EmptyState>
     );
   }
-  if (!deck || !uid || !views) return <p className={styles.muted}>Загружаем колоду…</p>;
+  if (albumError) {
+    return (
+      <EmptyState variant="page" tone="error" title="Альбом не загрузился" action={<Button onClick={retry}>Обновить</Button>}>
+        {albumError} Колода собирается из карточек альбома, поэтому без него конструктор не открыть.
+      </EmptyState>
+    );
+  }
+  if (!deck || !uid || !views) return <BuilderSkeleton />;
   return <Builder key={deck.id} uid={uid} deck={deck} views={views} />;
+}
+
+/** Заглушка конструктора, пока грузятся колода и альбом: сетка карт и панель колоды. */
+function BuilderSkeleton() {
+  const narrow = useMediaQuery(NARROW_DECK_QUERY);
+  return (
+    <SkeletonArea label="Загружаю колоду…" className={styles.builder}>
+      <div className={styles.pool}>
+        <Skeleton shape="text" width="7em" className={page.title} />
+        <Skeleton width="min(420px, 100%)" />
+        <div className={styles.grid}>
+          {Array.from({ length: 12 }, (_, index) => (
+            <div key={index} className={styles.poolCard}>
+              <Skeleton shape="card" />
+              <Skeleton shape="text" width="70%" className={styles.cardName} />
+              <Skeleton />
+            </div>
+          ))}
+        </div>
+      </div>
+      {!narrow && (
+        <div className={styles.deck}>
+          <Skeleton shape="text" width="8em" className={styles.deckName} />
+          <Skeleton shape="text" width="3em" className={styles.total} />
+          <Skeleton height={6} />
+          {[0, 1, 2, 3, 4].map((row) => (
+            <Skeleton key={row} shape="text" width={`${60 + ((row * 17) % 30)}%`} className={styles.row} />
+          ))}
+        </div>
+      )}
+    </SkeletonArea>
+  );
 }
 
 type Filter = 'all' | DeckCategory;
@@ -82,6 +122,8 @@ function Builder({ uid, deck, views }: { uid: string; deck: Deck; views: CardVie
   const [onlyInDeck, setOnlyInDeck] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const narrow = useMediaQuery(NARROW_DECK_QUERY);
   const { info, loading } = useDeckInfo(views);
   const byId = useMemo(() => new Map(views.map((view) => [view.docId, view])), [views]);
   const lines = deckLines(deck.cards, byId, info);
@@ -175,7 +217,7 @@ function Builder({ uid, deck, views }: { uid: string; deck: Deck; views: CardVie
           </div>
 
           <p className={styles.notice} role="status" aria-live="polite">
-            {notice ?? (loading ? 'Загружаем из TCGdex категории карт: пока они не пришли, карты видны только во вкладке «Все».' : '')}
+            {(loading ? 'Загружаем из TCGdex категории карт: пока они не пришли, карты видны только во вкладке «Все».' : '')}
           </p>
           {error && (
             <p role="alert" className={styles.error}>
@@ -204,8 +246,19 @@ function Builder({ uid, deck, views }: { uid: string; deck: Deck; views: CardVie
           )}
         </section>
 
-        <DeckPanel uid={uid} deck={deck} lines={lines} report={report} views={byId} loading={loading} onFix={save} />
+        {!narrow && (
+          <DeckPanel uid={uid} deck={deck} lines={lines} report={report} views={byId} loading={loading} notice={notice} onFix={save} />
+        )}
       </div>
+
+      {narrow && (
+        <>
+          <DeckBar report={report} loading={loading} notice={notice} onOpen={() => setSheetOpen(true)} />
+          <DeckSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
+            <DeckPanel uid={uid} deck={deck} lines={lines} report={report} views={byId} loading={loading} notice={null} sheet onFix={save} />
+          </DeckSheet>
+        </>
+      )}
     </>
   );
 }
@@ -239,7 +292,6 @@ function PoolCard({
           thumb={view.thumb}
           name={names.primary}
           number={number}
-          className={inDeck === 0 ? styles.outOfDeck : undefined}
         />
         {inDeck > 0 && <span className={styles.badge}>в колоде {inDeck}</span>}
       </div>
@@ -292,6 +344,8 @@ function DeckPanel({
   report,
   views,
   loading,
+  notice,
+  sheet = false,
   onFix,
 }: {
   uid: string;
@@ -300,6 +354,10 @@ function DeckPanel({
   report: DeckReport;
   views: ReadonlyMap<string, CardView>;
   loading: boolean;
+  /** Почему «+» не сработал: рядом со счётчиком, чтобы было видно, где бы ни была прокрутка */
+  notice: string | null;
+  /** В окне «Состав» на узком экране, а не липкой панелью справа */
+  sheet?: boolean;
   onFix: (cards: Record<string, number>) => void;
 }) {
   const [, navigate] = useLocation();
@@ -315,7 +373,7 @@ function DeckPanel({
   })).filter((group) => group.lines.length > 0);
 
   return (
-    <aside className={styles.deck} aria-labelledby={titleId}>
+    <aside className={sheet ? styles.sheetBody : styles.deck} aria-labelledby={titleId}>
       <DeckName uid={uid} deck={deck} titleId={titleId} />
 
       <div className={styles.progress}>
@@ -324,6 +382,11 @@ function DeckPanel({
           <span className={styles.totalOf}>из {DECK_SIZE} карт</span>
         </div>
         <DeckTrack total={report.total} />
+        {!sheet && (
+          <p className={styles.panelNotice} role="status" aria-live="polite">
+            {notice}
+          </p>
+        )}
       </div>
 
       <div className={styles.stats}>
@@ -388,9 +451,66 @@ function DeckPanel({
       </p>
 
       <div className={styles.deleteRow}>
-        <DeleteDeckButton uid={uid} deckId={deck.id} name={deck.name} variant="text" onDeleted={() => navigate('/decks')} />
+        <DeleteDeckButton uid={uid} deckId={deck.id} name={deck.name} onDeleted={() => navigate('/decks')} />
       </div>
     </aside>
+  );
+}
+
+/** Нижняя липкая полоса узкого экрана: сколько карт, готова ли колода, и «Состав». */
+function DeckBar({ report, loading, notice, onOpen }: { report: DeckReport; loading: boolean; notice: string | null; onOpen: () => void }) {
+  const checking = loading && report.total > 0;
+  return (
+    <div className={styles.bar}>
+      <div className={styles.barInfo}>
+        <div className={styles.barCount}>
+          <span className={styles.barTotal}>{report.total}</span>
+          <span className={styles.small}>из {DECK_SIZE} карт</span>
+          {!checking && report.ready && <CheckMark ok />}
+        </div>
+        <DeckTrack total={report.total} />
+        <p className={cx(styles.barStatus, notice && styles.barNotice)} role="status" aria-live="polite">
+          {notice ?? (checking ? 'Проверяем колоду…' : readinessHint(report))}
+        </p>
+      </div>
+      <Button className={styles.barButton} aria-haspopup="dialog" data-deck-open="" onClick={onOpen}>
+        Состав
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Состав колоды на узком экране: нативный модальный dialog снизу. Esc, closedby="any"
+ * (Chrome 134+) и запасной клик по подложке закрывают его, фокус возвращается на «Состав».
+ */
+function DeckSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+  return (
+    <dialog
+      ref={ref}
+      className={styles.sheet}
+      aria-label="Состав колоды"
+      onClose={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      {...({ closedby: 'any' } as object)}
+    >
+      <div className={styles.sheetHead}>
+        <span className={styles.sheetTitle}>Состав колоды</span>
+        <button type="button" className={styles.iconButton} aria-label="Закрыть" onClick={onClose}>
+          <CloseIcon size={16} stroke={2.2} />
+        </button>
+      </div>
+      {open && children}
+    </dialog>
   );
 }
 

@@ -13,9 +13,11 @@ import { deckLines, useDeckInfo } from '@/lib/useDeckInfo';
 import { useDecks } from '@/lib/useDecks';
 import { Button } from '@/ui/Button';
 import { CardImage } from '@/ui/CardImage';
+import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/EmptyState';
 import { PlusIcon } from '@/ui/Icons';
-import { CheckMark, DeckTrack, DeleteDeckButton } from './DeckParts';
+import { Skeleton, SkeletonArea } from '@/ui/Skeleton';
+import { CheckMark, DeckMenu, DeckTrack } from './DeckParts';
 import page from './Page.module.css';
 import styles from './Decks.module.css';
 
@@ -26,7 +28,7 @@ export function Decks() {
   const auth = useAuth();
   const uid = auth.status === 'signed-in' ? auth.user.uid : null;
   const decksState = useDecks(uid);
-  const { cards, ready } = useOwned();
+  const { cards, ready, error: albumError, retry } = useOwned();
   const views = useCardViews(cards, ready);
   const decks = decksState.status === 'ready' ? decksState.decks : [];
   const [creating, setCreating] = useState(false);
@@ -75,27 +77,31 @@ export function Decks() {
           {error}
         </p>
       )}
-      {decksState.status === 'error' && (
-        <p role="alert" className={styles.error}>
-          Колоды не загрузились: {decksState.message}
-        </p>
-      )}
-      {decksState.status === 'loading' && <p className={styles.muted}>Загружаем колоды…</p>}
-
-      {decksState.status === 'ready' && decks.length === 0 && (
-        <EmptyState title="Колод пока нет" action={newButton}>
+      {decksState.status === 'error' ? (
+        <EmptyState variant="page" tone="error" title="Колоды не загрузились">
+          {decksState.message}
+        </EmptyState>
+      ) : albumError ? (
+        // Без альбома колоды не проверить: вместо «0 из 60» — причина и повтор
+        <EmptyState variant="page" tone="error" title="Альбом не загрузился" action={<Button onClick={retry}>Обновить</Button>}>
+          {albumError} Колоды собираются из карточек альбома, поэтому без него их не проверить.
+        </EmptyState>
+      ) : decksState.status === 'loading' || (decks.length > 0 && !ready) ? (
+        <DecksSkeleton />
+      ) : decks.length === 0 ? (
+        <EmptyState variant="page" art="decks" title="Колод пока нет" action={newButton}>
           {cards.length === 0 && ready
             ? 'Сначала добавь карточки в альбом: колода собирается только из них.'
             : 'Собери колоду из карточек альбома: Binder сам проверит правила и подскажет, чего не хватает.'}
         </EmptyState>
-      )}
-
-      {decks.length > 0 && uid && (
-        <div className={styles.tiles}>
-          {decks.map((deck) => (
-            <DeckTile key={deck.id} uid={uid} deck={deck} views={byId} info={info} checking={loading || views === null} />
-          ))}
-        </div>
+      ) : (
+        uid && (
+          <div className={styles.tiles}>
+            {decks.map((deck) => (
+              <DeckTile key={deck.id} uid={uid} deck={deck} views={byId} info={info} checking={loading || views === null} />
+            ))}
+          </div>
+        )
       )}
     </>
   );
@@ -170,9 +176,32 @@ function DeckTile({
           )}
         </p>
       </Link>
-      <div className={styles.tileDelete}>
-        <DeleteDeckButton uid={uid} deckId={deck.id} name={deck.name} variant="icon" />
+      <div className={styles.tileMenu}>
+        <DeckMenu uid={uid} deckId={deck.id} name={deck.name} />
       </div>
     </article>
+  );
+}
+
+/** Плитки-заглушки, пока грузятся колоды или альбом. */
+function DecksSkeleton() {
+  return (
+    <SkeletonArea label="Загружаю колоды…" className={styles.tiles}>
+      {[0, 1, 2].map((index) => (
+        <div key={index} className={cx(styles.tile, styles.tileSkeleton)}>
+          <div className={styles.fan}>
+            {[0, 1, 2].map((card) => (
+              <Skeleton key={card} shape="card" />
+            ))}
+          </div>
+          <Skeleton shape="text" width="9em" className={styles.tileName} />
+          <div className={styles.progress}>
+            <Skeleton shape="text" width="13em" className={styles.small} />
+            <Skeleton height={6} />
+          </div>
+          <Skeleton shape="text" width="8em" className={styles.small} />
+        </div>
+      ))}
+    </SkeletonArea>
   );
 }

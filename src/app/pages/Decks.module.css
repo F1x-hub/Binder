@@ -125,11 +125,98 @@
   line-height: 1.4;
 }
 
-/* «−» колоды в углу плитки: удаление со второго нажатия, как в альбоме */
-.tileDelete {
+/* «⋯» в углу плитки: меню с «Открыть конструктор» и «Удалить колоду» */
+.tileMenu {
   position: absolute;
   top: 12px;
   right: 12px;
+}
+
+/* Плитка-заглушка: те же отступы, что у ссылки внутри настоящей плитки */
+.tileSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+}
+
+/* Меню «⋯» в верхнем слое, под кнопкой по её правому краю; у края окна переворачивается */
+.menu {
+  inset: auto;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  margin: 6px 0;
+  width: 240px;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-family: var(--font-body);
+}
+
+.menu:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  border: none;
+  border-radius: max(0px, calc(var(--radius-control) - 4px));
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: var(--surface-2);
+}
+
+.menuItem:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Второе нажатие удаляет: пункт залит акцентом, как кнопка подтверждения */
+.menuItem.menuDanger,
+.menuItem.menuDanger:hover,
+.menuItem.menuDanger:focus-visible {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .menu {
+    opacity: 0;
+    translate: 0 -4px;
+    transition: opacity, translate, display, overlay;
+    transition-duration: 0.12s;
+    transition-behavior: allow-discrete;
+  }
+
+  .menu:popover-open {
+    opacity: 1;
+    translate: 0 0;
+    transition-duration: 0.1s;
+
+    @starting-style {
+      opacity: 0;
+      translate: 0 -4px;
+    }
+  }
 }
 
 /* ---------- Конструктор ---------- */
@@ -155,15 +242,24 @@
   font-weight: 500;
 }
 
+/*
+ * Широкий экран: карты слева, колода липкой панелью справа.
+ * На 1100 px и уже панели нет: внизу липкая полоса «N из 60» и «Состав» (dialog).
+ */
 .builder {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+  align-items: start;
   gap: 28px;
 }
 
+@media (max-width: 1100px) {
+  .builder {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .pool {
-  flex: 999 1 640px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -310,11 +406,6 @@
   position: relative;
 }
 
-/* Карта, которой нет в колоде, — приглушённая, как в макете */
-.outOfDeck {
-  opacity: 0.55;
-}
-
 .badge {
   position: absolute;
   left: 8px;
@@ -401,8 +492,13 @@
 
 /* ---------- Панель колоды ---------- */
 
+/* Рядом с сеткой панель держится на экране, пока листаешь карты; длинный состав прокручивается внутри */
 .deck {
-  flex: 1 1 340px;
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -414,13 +510,152 @@
   box-shadow: var(--panel-shadow);
 }
 
-/* Рядом с сеткой панель держится на экране, пока листаешь карты */
-@media (min-width: 1100px) {
-  .deck {
-    position: sticky;
-    top: 24px;
-    max-height: calc(100vh - 48px);
-    overflow-y: auto;
+/* Почему «+» не сработал; пустая строка места не занимает */
+.panelNotice {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.panelNotice:empty {
+  display: none;
+}
+
+/* ---------- Узкий экран: нижняя полоса и «Состав» ---------- */
+
+.bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: -8px;
+  padding: 12px 12px 12px 16px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.barInfo {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.barCount {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.barTotal {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: round(calc(24px * var(--display-scale)), 1px);
+  letter-spacing: var(--display-tracking);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.barCount .ok {
+  align-self: center;
+}
+
+.barStatus {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Отказ «+» виден вместо подсказки, цветом текста; длинный — в две строки */
+.barNotice {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.barButton.barButton {
+  width: auto;
+  flex-shrink: 0;
+  height: 46px;
+  padding-inline: 20px;
+  font-size: 14px;
+}
+
+/* Состав колоды: окно снизу во всю ширину (до 560 px), прокручивается внутри */
+.sheet {
+  width: min(100% - 16px, 560px);
+  max-width: none;
+  max-height: min(88dvh, 900px);
+  margin: auto auto 8px;
+  padding: 0;
+  border-radius: var(--radius-panel);
+  border: var(--border) solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sheet[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet::backdrop {
+  background: rgba(5, 5, 6, 0.6);
+}
+
+:global(html:has(dialog[open])) {
+  overflow: hidden;
+}
+
+.sheetHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px 10px 20px;
+  background: var(--surface);
+  border-bottom: var(--border) solid var(--line);
+}
+
+.sheetTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sheet[open] {
+    animation: sheet-in 0.18s ease-out;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    translate: 0 24px;
+    opacity: 0;
   }
 }
 
