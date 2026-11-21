@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
+import { useOwned } from '@/lib/collection-state';
 import { binderDb } from '@/lib/db';
-import { DECK_SIZE, addBlocker, deckTotal, unknownInfo } from '@/lib/deck-rules';
+import { DECK_SIZE, addBlocker, deckTotal, unknownInfo, type DeckCardInfo } from '@/lib/deck-rules';
 import { createDeck, defaultDeckName, setDeckCards, withCount } from '@/lib/decks';
-import type { CardView } from '@/lib/useCardViews';
+import { useCardViews, type CardView } from '@/lib/useCardViews';
 import { deckLines, ruleName, useDeckInfo } from '@/lib/useDeckInfo';
 import { useDecks } from '@/lib/useDecks';
 import { Select } from '@/ui/Select';
@@ -15,8 +16,9 @@ type Done = { deckId: string; text: string };
 
 /**
  * «Добавить в колоду» на странице карточки: выбор колоды и +1 копия. Здесь проверяются размер
- * колоды, копии в альбоме и четыре копии этой карты; разные печати с одним именем вместе
- * сводит конструктор колоды (там известны все карты колоды).
+ * колоды, копии в альбоме, четыре копии этой карты и, если карта ACE SPEC или Radiant, нет ли
+ * в колоде другой такой (тогда сведения о картах колоды грузятся из того же загрузчика, без цен);
+ * разные печати с одним именем вместе сводит конструктор колоды (там известны все карты колоды).
  */
 export function AddToDeck({ view, uid }: { view: CardView; uid: string }) {
   const decksState = useDecks(uid);
@@ -31,7 +33,10 @@ export function AddToDeck({ view, uid }: { view: CardView; uid: string }) {
 
   const deckId = selected && (selected === NEW || decks.some((deck) => deck.id === selected)) ? selected : (decks[0]?.id ?? NEW);
   const deck = decks.find((item) => item.id === deckId) ?? null;
-  const lines = deck ? deckLines(deck.cards, new Map([[view.docId, view]]), info) : [];
+  const others = useDeckOthers(deck?.cards ?? null, view.docId, cardInfo.aceSpec || cardInfo.radiant);
+  const lines = deck
+    ? deckLines(deck.cards, new Map([...others.views, [view.docId, view]]), new Map([...others.info, ...info]))
+    : [];
   const blocker = deck ? addBlocker(lines, view.docId, cardInfo, view.count) : null;
 
   useEffect(() => {
@@ -93,7 +98,7 @@ export function AddToDeck({ view, uid }: { view: CardView; uid: string }) {
           className={styles.button}
           aria-disabled={blocker ? 'true' : undefined}
           title={blocker ?? undefined}
-          disabled={busy || decksState.status === 'loading'}
+          disabled={busy || decksState.status === 'loading' || others.loading}
           onClick={() => void add()}
         >
           {deck || decks.length > 0 ? 'Добавить в колоду' : 'Собрать колоду с этой картой'}
@@ -112,4 +117,32 @@ export function AddToDeck({ view, uid }: { view: CardView; uid: string }) {
       </p>
     </div>
   );
+}
+
+const NO_CARDS: never[] = [];
+
+/**
+ * Остальные карты колоды с их сведениями: нужны, только если добавляемая карта ACE SPEC или
+ * Radiant (правило одной такой карты на колоду). Иначе ничего не грузится.
+ */
+function useDeckOthers(
+  cards: Readonly<Record<string, number>> | null,
+  docId: string,
+  needed: boolean,
+): { views: ReadonlyMap<string, CardView>; info: ReadonlyMap<string, DeckCardInfo>; loading: boolean } {
+  const { byId, ready } = useOwned();
+  const owned = useMemo(
+    () =>
+      needed && cards
+        ? Object.keys(cards).flatMap((id) => {
+            const card = id === docId ? undefined : byId.get(id);
+            return card ? [card] : [];
+          })
+        : NO_CARDS,
+    [needed, cards, docId, byId],
+  );
+  const views = useCardViews(owned, ready, { prices: false });
+  const { info, loading } = useDeckInfo(owned.length > 0 ? views : NO_CARDS);
+  const byDoc = useMemo(() => new Map((views ?? []).map((item) => [item.docId, item])), [views]);
+  return { views: byDoc, info, loading: owned.length > 0 && loading };
 }

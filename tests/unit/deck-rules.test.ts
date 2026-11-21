@@ -5,7 +5,9 @@ import {
   deckTotal,
   infoFromLimitless,
   infoFromTcgdex,
+  isAceSpecName,
   isBasicEnergyName,
+  isRadiantName,
   nameKey,
   readinessHint,
   unknownInfo,
@@ -14,9 +16,12 @@ import {
 } from '@/lib/deck-rules';
 import { NBSP } from '@/lib/format';
 
-const pokemon = (name: string, basic = true): DeckCardInfo => ({ name, category: 'pokemon', basicPokemon: basic, basicEnergy: false });
-const trainer = (name: string): DeckCardInfo => ({ name, category: 'trainer', basicPokemon: false, basicEnergy: false });
-const energy = (name: string, basic = true): DeckCardInfo => ({ name, category: 'energy', basicPokemon: false, basicEnergy: basic });
+const plain = { aceSpec: false, radiant: false };
+const pokemon = (name: string, basic = true): DeckCardInfo => ({ name, category: 'pokemon', basicPokemon: basic, basicEnergy: false, ...plain });
+const trainer = (name: string): DeckCardInfo => ({ name, category: 'trainer', basicPokemon: false, basicEnergy: false, ...plain });
+const energy = (name: string, basic = true): DeckCardInfo => ({ name, category: 'energy', basicPokemon: false, basicEnergy: basic, ...plain });
+const aceSpec = (name: string): DeckCardInfo => ({ ...trainer(name), aceSpec: true });
+const radiant = (name: string): DeckCardInfo => ({ ...pokemon(name), radiant: true });
 
 const line = (docId: string, count: number, info: DeckCardInfo, owned = count): DeckLine => ({ docId, count, owned, info });
 
@@ -179,7 +184,14 @@ describe('сведения о карте', () => {
   });
 
   it('из TCGdex без категории — как карта без данных', () => {
-    expect(infoFromTcgdex('Fire Energy', {})).toEqual({ name: 'Fire Energy', category: null, basicPokemon: false, basicEnergy: true });
+    expect(infoFromTcgdex('Fire Energy', {})).toEqual({
+      name: 'Fire Energy',
+      category: null,
+      basicPokemon: false,
+      basicEnergy: true,
+      aceSpec: false,
+      radiant: false,
+    });
   });
 
   it('из Limitless: card_type и stage', () => {
@@ -211,5 +223,118 @@ describe('сведения о карте', () => {
   it('deckTotal', () => {
     expect(deckTotal({})).toBe(0);
     expect(deckTotal({ a: 4, b: 12 })).toBe(16);
+  });
+});
+
+/** Колода из 60 карт: 4 базовых, 40 тренеров по 4, 16 базовой энергии; особые карты встают вместо энергии. */
+function deckWith(...special: DeckLine[]): DeckLine[] {
+  const extra = special.reduce((sum, item) => sum + item.count, 0);
+  return [
+    line('sv03-4', 4, pokemon('Charmander')),
+    ...Array.from({ length: 10 }, (_, index) => line(`tr-${index}`, 4, trainer(`Trainer ${index}`))),
+    line('sve-002', 16 - extra, energy('Fire Energy')),
+    ...special,
+  ];
+}
+
+describe('ACE SPEC и Radiant', () => {
+  it('одна карта ACE SPEC — можно, проверка видна', () => {
+    const lines = deckWith(line('sv05-157', 1, aceSpec('Prime Catcher')));
+    const report = checkDeck(lines);
+    expect(report.ready).toBe(true);
+    expect(check(lines, 'aceSpec')).toEqual({ id: 'aceSpec', ok: true, text: 'Одна карта ACE SPEC' });
+    expect(report.checks.map((item) => item.id)).toEqual(['copies', 'basic', 'aceSpec', 'size']);
+  });
+
+  it('без ACE SPEC и Radiant этих проверок нет', () => {
+    expect(checkDeck(legalDeck()).checks.map((item) => item.id)).toEqual(['copies', 'basic', 'size']);
+  });
+
+  it('две разные карты ACE SPEC — нарушение', () => {
+    const lines = deckWith(line('sv05-157', 1, aceSpec('Prime Catcher')), line('sv05-153', 1, aceSpec('Master Ball')));
+    const report = checkDeck(lines);
+    expect(report.total).toBe(60);
+    expect(report.ready).toBe(false);
+    expect(check(lines, 'aceSpec')).toEqual({ id: 'aceSpec', ok: false, text: `В колоде 2${NBSP}карты ACE SPEC — можно одну` });
+    expect(readinessHint(report)).toBe('Исправь колоду, чтобы играть');
+  });
+
+  it('две копии одной карты ACE SPEC — тоже нарушение', () => {
+    const lines = deckWith(line('sv05-157', 2, aceSpec('Prime Catcher')));
+    expect(check(lines, 'aceSpec')?.ok).toBe(false);
+    expect(check(lines, 'copies')?.ok).toBe(true);
+  });
+
+  it('два покемона Radiant — нарушение', () => {
+    const lines = deckWith(line('swsh10-046', 1, radiant('Radiant Greninja')), line('swsh10.5-011', 1, radiant('Radiant Charizard')));
+    expect(check(lines, 'radiant')).toEqual({ id: 'radiant', ok: false, text: `В колоде 2${NBSP}покемона Radiant — можно одного` });
+    const one = deckWith(line('swsh10-046', 1, radiant('Radiant Greninja')));
+    expect(check(one, 'radiant')).toEqual({ id: 'radiant', ok: true, text: 'Один покемон Radiant' });
+    expect(checkDeck(one).ready).toBe(true);
+  });
+
+  it('«+» не даёт взять вторую карту ACE SPEC или второго Radiant', () => {
+    const lines = [line('sv05-157', 1, aceSpec('Prime Catcher'), 3), line('swsh10-046', 1, radiant('Radiant Greninja'), 2)];
+    expect(addBlocker(lines, 'sv05-153', aceSpec('Master Ball'), 1)).toBe('В колоде уже есть карта ACE SPEC — можно одну');
+    expect(addBlocker(lines, 'sv05-157', aceSpec('Prime Catcher'), 3)).toBe('В колоде уже есть карта ACE SPEC — можно одну');
+    expect(addBlocker(lines, 'swsh10.5-011', radiant('Radiant Charizard'), 1)).toBe('В колоде уже есть покемон Radiant — можно одного');
+    expect(addBlocker(lines, 'tr-1', trainer('Rare Candy'), 4)).toBeNull();
+    expect(addBlocker([], 'sv05-157', aceSpec('Prime Catcher'), 1)).toBeNull();
+    // Строка с нулём копий не считается
+    expect(addBlocker([line('sv05-157', 0, aceSpec('Prime Catcher'))], 'sv05-153', aceSpec('Master Ball'), 1)).toBeNull();
+  });
+
+  it('карты без данных: ACE SPEC — только по однозначному имени, Radiant — по имени', () => {
+    expect(unknownInfo('Prime Catcher').aceSpec).toBe(true);
+    expect(unknownInfo('Unfair Stamp').aceSpec).toBe(true);
+    // У «Master Ball» и «Computer Search» есть старые печати не ACE SPEC: без данных не узнаются
+    expect(unknownInfo('Master Ball').aceSpec).toBe(false);
+    expect(unknownInfo('Computer Search').aceSpec).toBe(false);
+    expect(unknownInfo('プライムキャッチャー').aceSpec).toBe(false);
+    expect(unknownInfo('Radiant Greninja').radiant).toBe(true);
+    expect(unknownInfo('かがやくゲッコウガ').radiant).toBe(true);
+    expect(unknownInfo('Greninja').radiant).toBe(false);
+    // Карта без данных идёт в счёт правила, как и в остальных
+    const lines = deckWith(line('x-ja-SVLS-20', 1, unknownInfo('Prime Catcher')), line('sv05-153', 1, aceSpec('Master Ball')));
+    expect(check(lines, 'aceSpec')?.ok).toBe(false);
+  });
+
+  it('из TCGdex: по редкости, у переизданий без редкости — по имени и знаку регуляции', () => {
+    // sv05-153 «Master Ball»: rarity «ACE SPEC Rare», regulationMark «H»
+    expect(infoFromTcgdex('Master Ball', { category: 'Trainer', rarity: 'ACE SPEC Rare', regulationMark: 'H' }).aceSpec).toBe(true);
+    // ja SV8a-148 «プライムキャッチャー»: rarity «None», regulationMark «H», английское имя из Limitless
+    expect(
+      infoFromTcgdex('Prime Catcher', { category: 'Trainer', rarity: 'None', regulationMark: 'H', name: 'プライムキャッチャー' }).aceSpec,
+    ).toBe(true);
+    // Старые «Master Ball» (ex16-78) — не ACE SPEC
+    expect(infoFromTcgdex('Master Ball', { category: 'Trainer', rarity: 'Uncommon', set: { id: 'ex16' } }).aceSpec).toBe(false);
+    // bw7-137 «Computer Search»: rarity «Rare», ACE SPEC эпохи BW; base1-71 — нет
+    expect(infoFromTcgdex('Computer Search', { category: 'Trainer', rarity: 'Rare', set: { id: 'bw7' } }).aceSpec).toBe(true);
+    expect(infoFromTcgdex('Computer Search', { category: 'Trainer', rarity: 'Rare', set: { id: 'base1' } }).aceSpec).toBe(false);
+    // Без английского имени и без редкости японскую карту не узнать
+    expect(infoFromTcgdex('プライムキャッチャー', { category: 'Trainer', rarity: 'None', regulationMark: 'H' }).aceSpec).toBe(false);
+
+    // swsh10-046 «Radiant Greninja»: rarity «Radiant Rare», category «Pokemon», stage «Basic»
+    const greninja = infoFromTcgdex('Radiant Greninja', { category: 'Pokemon', stage: 'Basic', rarity: 'Radiant Rare' });
+    expect(greninja).toEqual({ ...pokemon('Radiant Greninja'), radiant: true });
+    expect(infoFromTcgdex('Greninja', { category: 'Pokemon', stage: 'Basic', rarity: 'Radiant Rare' }).radiant).toBe(true);
+    expect(infoFromTcgdex('Greninja', { category: 'Pokemon', stage: 'Basic', name: 'かがやくゲッコウガ' }).radiant).toBe(true);
+    expect(infoFromTcgdex('Greninja ex', { category: 'Pokemon', stage: 'Stage2', rarity: 'Double rare' }).radiant).toBe(false);
+  });
+
+  it('из Limitless: редкости нет, ACE SPEC по английскому имени и знаку регуляции', () => {
+    // SVHK/32 «マスターボール»: card_type trainer, regulation h, rarity null
+    expect(infoFromLimitless('Master Ball', { card_type: 'trainer', type: 'item', regulation: 'h', rarity: null }).aceSpec).toBe(true);
+    expect(infoFromLimitless('Master Ball', { card_type: 'trainer', type: 'item', regulation: null }).aceSpec).toBe(false);
+    expect(infoFromLimitless('Rare Candy', { card_type: 'trainer', type: 'item', regulation: 'h' }).aceSpec).toBe(false);
+    expect(infoFromLimitless('Greninja', { card_type: 'pokemon', stage: 'basic', name: 'かがやくゲッコウガ' }).radiant).toBe(true);
+  });
+
+  it('имена', () => {
+    expect(isAceSpecName('Hero’s Cape')).toBe(true);
+    expect(isAceSpecName('Poke Vital A')).toBe(true);
+    expect(isAceSpecName('Rare Candy')).toBe(false);
+    expect(isRadiantName('  radiant charizard')).toBe(true);
+    expect(isRadiantName('Radiance Charm')).toBe(false);
   });
 });
