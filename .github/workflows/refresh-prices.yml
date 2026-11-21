@@ -27,8 +27,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # Скрипты установки не нужны: задаче не нужна подготовка WXT, а у npm 10 нет allowScripts из package.json
+      # Скрипты установки выключены: у npm 10 нет allowScripts из package.json
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      # Корневой tsconfig.json наследует .wxt/tsconfig.json, без него сборка скрипта падает;
+      # обычно его создаёт postinstall (wxt prepare), а он выключен строкой выше
+      - run: npx wxt prepare
       - run: npm run prices:refresh
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
