@@ -30,7 +30,12 @@
   margin-top: 14px;
 }
 
-.fanCard {
+/*
+ * Карты веера — это CardStub со своим `position: relative` в CardStub.module.css.
+ * Порядок модулей в собранном CSS не задан, поэтому одного класса мало:
+ * селектор через .fan сильнее (два класса) и побеждает при любом порядке.
+ */
+.fan > .fanCard {
   position: absolute;
   left: 50%;
   width: 96px;
@@ -38,17 +43,17 @@
   box-shadow: var(--card-shadow);
 }
 
-.left {
+.fan > .left {
   top: 12px;
   transform: translateX(-78px) rotate(-12deg);
 }
 
-.right {
+.fan > .right {
   top: 12px;
   transform: translateX(78px) rotate(12deg);
 }
 
-.center {
+.fan > .center {
   top: 0;
 }
 

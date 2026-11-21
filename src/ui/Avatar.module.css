@@ -1,4 +1,5 @@
 .avatar {
+  position: relative;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -7,10 +8,38 @@
   border-radius: 50%;
   background: var(--surface-2);
   border: var(--border) solid var(--line);
+  /* Свой цвет, а не цвет окружения: аватарка бывает внутри ссылок и шапки темы */
+  color: var(--text);
 }
 
 .avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/*
+ * Буква имени, как в макетах: около 0.4 диаметра, полужирная. Она вынута из потока
+ * (и встаёт по центру флекса), потому что подчёркивание ссылки вокруг аватарки
+ * доходит до всех букв в потоке и снять его у потомка нельзя.
+ */
+.initial {
+  position: absolute;
+  font-size: round(calc(var(--avatar-size) * 0.4), 1px);
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* Большая аватарка профиля: буква шрифтом заголовков темы */
+.large .initial {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: round(calc(var(--avatar-size) * 0.39 * var(--display-scale)), 1px);
+  letter-spacing: var(--display-tracking);
+}
+
+/* Пиксельный шрифт Ретро рисуется ровно только кратно 8 px */
+:global([data-theme='retro']) .large .initial {
+  font-size: round(calc(var(--avatar-size) * 0.39 * var(--display-scale)), 8px);
+  letter-spacing: 0;
 }

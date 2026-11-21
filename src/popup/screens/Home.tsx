@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useAuth } from '@/lib/auth-state';
 import { useOwned } from '@/lib/collection-state';
 import { CARD_FORMS, DECK_FORMS, SET_FORMS, formatCardPrice, formatInteger, formatUsd, pluralWord, type WordForms } from '@/lib/format';
 import { displayNames } from '@/lib/names';
 import { imageFiles } from '@/lib/photo';
 import { appUrl, openAppFromPopup } from '@/lib/tabs';
 import { collectionTotals, newestFirst, useCardViews } from '@/lib/useCardViews';
+import { useDecks } from '@/lib/useDecks';
 import { BottomNav } from '@/ui/BottomNav';
 import { Button } from '@/ui/Button';
 import { CardImage } from '@/ui/CardImage';
@@ -24,6 +26,8 @@ export function Home({ onScan, onSettings }: Props) {
   const views = useCardViews(cards, ready);
   const totals = collectionTotals(views ?? cards.map((card) => ({ ...card, price: null })));
   const recent = newestFirst(views ?? []).slice(0, 4);
+  const auth = useAuth();
+  const decks = useDecks(auth.status === 'signed-in' ? auth.user.uid : null);
   const [dragging, setDragging] = useState(false);
 
   return (
@@ -59,8 +63,13 @@ export function Home({ onScan, onSettings }: Props) {
             <Stat n={totals.copies} forms={CARD_FORMS} />
             <span className={styles.divider} aria-hidden="true" />
             <Stat n={totals.sets} forms={SET_FORMS} />
-            <span className={styles.divider} aria-hidden="true" />
-            <Stat n={0} forms={DECK_FORMS} />
+            {/* Пока колоды не пришли, их число не показываем, чтобы не мелькал «0 колод» */}
+            {decks.status === 'ready' && (
+              <>
+                <span className={styles.divider} aria-hidden="true" />
+                <Stat n={decks.decks.length} forms={DECK_FORMS} />
+              </>
+            )}
           </div>
         </section>
 
