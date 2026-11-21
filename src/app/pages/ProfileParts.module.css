@@ -16,10 +16,6 @@
   white-space: nowrap;
 }
 
-.statSmall {
-  font-size: round(calc(20px * var(--display-scale)), 1px);
-}
-
 .statLabel {
   font-size: 13px;
   color: var(--muted);
@@ -100,10 +96,6 @@
   font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.small .name {
-  font-size: 13px;
 }
 
 .price {

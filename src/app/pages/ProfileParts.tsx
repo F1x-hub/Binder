@@ -7,7 +7,6 @@ import { normalizeNumber } from '@/lib/matching';
 import { displayNames } from '@/lib/names';
 import type { CardView, collectionTotals } from '@/lib/useCardViews';
 import { CardImage } from '@/ui/CardImage';
-import { cx } from '@/ui/cx';
 import styles from './ProfileParts.module.css';
 
 type Totals = ReturnType<typeof collectionTotals>;
@@ -23,10 +22,10 @@ export function valueParts(totals: Pick<Totals, 'value' | 'euro'>): { main: stri
 }
 
 /** Число крупно и подпись под ним, как в шапке профиля из макета. */
-export function Stat({ value, label, note, small = false }: { value: ReactNode; label: string; note?: string | null; small?: boolean }) {
+export function Stat({ value, label, note }: { value: ReactNode; label: string; note?: string | null }) {
   return (
     <div className={styles.stat}>
-      <span className={cx(styles.statValue, small && styles.statSmall)}>{value}</span>
+      <span className={styles.statValue}>{value}</span>
       <span className={styles.statLabel}>{label}</span>
       {note && <span className={styles.statNote}>{note}</span>}
     </div>
@@ -79,11 +78,10 @@ type TileProps = {
   /** Своя карта ведёт на страницу карточки, чужая открывает просмотр */
   href?: string;
   onOpen?: () => void;
-  size?: 'normal' | 'small';
 };
 
-/** Карта в сетке профиля: скан, имя (английское главным) и цена. */
-export function CardTile({ view, href, onOpen, size = 'normal' }: TileProps) {
+/** Карта в сетке профиля: скан, имя (английское главным) и цена. Во всех блоках профиля одной величины. */
+export function CardTile({ view, href, onOpen }: TileProps) {
   const names = displayNames(view.name, view.englishName);
   const label = `${names.primary}, ${numberLabel(view)}`;
   const image = (
@@ -97,7 +95,7 @@ export function CardTile({ view, href, onOpen, size = 'normal' }: TileProps) {
     />
   );
   return (
-    <figure className={cx(styles.tile, size === 'small' && styles.small)}>
+    <figure className={styles.tile}>
       <div className={styles.imageWrap}>
         {href ? (
           <Link href={href} className={styles.open} aria-label={`${label}: открыть карточку`}>
@@ -114,7 +112,7 @@ export function CardTile({ view, href, onOpen, size = 'normal' }: TileProps) {
         <span className={styles.name} title={names.secondary ?? undefined}>
           {names.primary}
         </span>
-        {size === 'normal' && <span className={styles.price}>{formatCardPrice(view.price)}</span>}
+        <span className={styles.price}>{formatCardPrice(view.price)}</span>
       </figcaption>
     </figure>
   );

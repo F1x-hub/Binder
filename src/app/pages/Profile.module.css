@@ -9,34 +9,25 @@
 }
 
 .crumbs {
-  display: flex;
-  align-items: center;
   margin: -12px 0 -8px;
 }
 
-.back {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 14px 0 10px;
-  border-radius: var(--radius-control);
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.back:hover {
-  background: var(--surface-2);
-}
-
-/* Шапка профиля из макета: аватар, имя, числа и кнопки справа */
+/*
+ * Шапка профиля из макета: аватар, имя, числа и кнопки справа. Имя и числа стоят на одной
+ * базовой линии (числа под ней — подписи), аватар и кнопки — по центру строки. Приписка
+ * «и €… по Cardmarket» под стоимостью уходит вниз и не поднимает числа над именем.
+ */
 .top {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 24px 32px;
+  align-items: baseline;
+  gap: 20px 32px;
+}
+
+.avatar {
+  align-self: center;
+  display: flex;
+  flex-shrink: 0;
 }
 
 .identity {
@@ -64,10 +55,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 16px 32px;
-  padding-left: 8px;
 }
 
 .actions {
+  align-self: center;
   margin-left: auto;
   display: flex;
   flex-wrap: wrap;
@@ -77,6 +68,18 @@
 .actions .action {
   width: auto;
   font-size: 14px;
+}
+
+/* «Изменить профиль» — рамкой, главная кнопка шапки — «Изменить витрину» */
+.actions .secondary {
+  background: transparent;
+  color: var(--text);
+  border: var(--border) solid var(--line);
+  box-shadow: none;
+}
+
+.actions .secondary:hover {
+  background: var(--surface-2);
 }
 
 /* Разделы профиля: подчёркнутая вкладка цветом акцента */
@@ -148,16 +151,16 @@
   font-weight: 600;
 }
 
-.grid {
+/*
+ * Карты во всех блоках профиля (витрина, «Нет у тебя», коллекция и заглушки) одной величины:
+ * колонка фиксированной ширины, лишнее место остаётся справа.
+ */
+.cards {
+  --tile: 140px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fill, var(--tile));
+  justify-content: start;
   gap: 20px 16px;
-}
-
-.smallGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(110px, 100%), 1fr));
-  gap: 16px;
 }
 
 /* Пустое место витрины в своём профиле: открывает выбор карт */
@@ -214,12 +217,6 @@
   font-weight: 600;
 }
 
-.albumGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-  gap: 18px 16px;
-}
-
 /* Заглушка профиля друга, пока читается документ участника: те же отступы, что у страницы */
 .skeleton {
   display: flex;
@@ -229,4 +226,40 @@
 
 .skeletonTabs {
   margin-block: 12px;
+}
+
+/* Телефон: три карты в ряд, панели коллекции с узкими полями, числа шапки одной строкой */
+@media (max-width: 560px) {
+  .top {
+    gap: 16px 20px;
+  }
+
+  /* Имя остаётся рядом с аватаром, длинная подпись переносится */
+  .identity {
+    flex: 1 1 0;
+  }
+
+  .stats {
+    flex-basis: 100%;
+    gap: 12px 28px;
+  }
+
+  /* Кнопки шапки во всю ширину, друг под другом */
+  .actions {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+
+  .actions .action {
+    flex: 1 1 100%;
+  }
+
+  .cards {
+    --tile: 96px;
+    gap: 16px 8px;
+  }
+
+  .panel {
+    padding: 16px 12px;
+  }
 }

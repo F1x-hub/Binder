@@ -9,6 +9,7 @@ import { Button } from '@/ui/Button';
 import { CardImage } from '@/ui/CardImage';
 import { cx } from '@/ui/cx';
 import { CloseIcon } from '@/ui/Icons';
+import { Skeleton, SkeletonArea } from '@/ui/Skeleton';
 import { TextField } from '@/ui/TextField';
 import { byPrice, numberLabel } from './ProfileParts';
 import styles from './ShowcaseEditor.module.css';
@@ -105,45 +106,56 @@ export function ShowcaseEditor({ open, uid, views, owned, current, onClose }: Pr
       </div>
       {full && <p className={styles.muted}>В витрине уже шесть карт. Чтобы добавить другую, убери одну из выбранных.</p>}
 
-      <div className={styles.grid}>
-        {list.map((view) => {
-          const position = selected.indexOf(view.docId);
-          const on = position >= 0;
-          const names = displayNames(view.name, view.englishName);
-          return (
-            <button
-              key={view.docId}
-              type="button"
-              aria-pressed={on}
-              disabled={!on && full}
-              className={cx(styles.option, on && styles.on)}
-              onClick={() => setSelected((previous) => toggleShowcase(previous, view.docId))}
-            >
-              <span className={styles.image}>
-                <CardImage
-                  image={view.image}
-                  limitless={view.limitless}
-                  thumb={view.thumb}
-                  name={names.primary}
-                  number={numberLabel(view)}
-                  lang={view.lang}
-                />
-                {on && (
-                  <span className={styles.position} aria-hidden="true">
-                    {position + 1}
-                  </span>
-                )}
-              </span>
-              <span className={styles.name}>{names.primary}</span>
-              <span className={styles.price}>{formatCardPrice(view.price)}</span>
-            </button>
-          );
-        })}
-        {!views && <p className={styles.muted}>Загружаем альбом…</p>}
-        {views && list.length === 0 && (
-          <p className={styles.muted}>{query ? 'В альбоме нет карт с таким именем или номером.' : 'В альбоме пока нет карт.'}</p>
-        )}
-      </div>
+      {!views ? (
+        <SkeletonArea label="Загружаю альбом…" className={styles.grid}>
+          {Array.from({ length: 12 }, (_, index) => (
+            <span key={index} className={styles.option}>
+              <Skeleton shape="card" />
+              <Skeleton shape="text" width="70%" className={styles.name} />
+              <Skeleton shape="text" width="40%" className={styles.price} />
+            </span>
+          ))}
+        </SkeletonArea>
+      ) : (
+        <div className={styles.grid}>
+          {list.map((view) => {
+            const position = selected.indexOf(view.docId);
+            const on = position >= 0;
+            const names = displayNames(view.name, view.englishName);
+            return (
+              <button
+                key={view.docId}
+                type="button"
+                aria-pressed={on}
+                disabled={!on && full}
+                className={cx(styles.option, on && styles.on)}
+                onClick={() => setSelected((previous) => toggleShowcase(previous, view.docId))}
+              >
+                <span className={styles.image}>
+                  <CardImage
+                    image={view.image}
+                    limitless={view.limitless}
+                    thumb={view.thumb}
+                    name={names.primary}
+                    number={numberLabel(view)}
+                    lang={view.lang}
+                  />
+                  {on && (
+                    <span className={styles.position} aria-hidden="true">
+                      {position + 1}
+                    </span>
+                  )}
+                </span>
+                <span className={styles.name}>{names.primary}</span>
+                <span className={styles.price}>{formatCardPrice(view.price)}</span>
+              </button>
+            );
+          })}
+          {list.length === 0 && (
+            <p className={styles.empty}>{query ? 'В альбоме нет карт с таким именем или номером.' : 'В альбоме пока нет карт.'}</p>
+          )}
+        </div>
+      )}
 
       {error && (
         <p role="alert" className={styles.error}>

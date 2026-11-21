@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Link, useLocation, useParams } from 'wouter';
+import { useLocation, useParams } from 'wouter';
 import { usePageTitle } from '@/app/usePageTitle';
 import { useAuth } from '@/lib/auth-state';
 import { useOwned } from '@/lib/collection-state';
@@ -13,10 +13,13 @@ import { Avatar } from '@/ui/Avatar';
 import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
 import { Skeleton, SkeletonArea } from '@/ui/Skeleton';
-import { BackIcon, PencilIcon, PlusIcon } from '@/ui/Icons';
+import { Crumbs } from '@/ui/Crumbs';
+import { cx } from '@/ui/cx';
+import { PencilIcon, PlusIcon, UserIcon } from '@/ui/Icons';
 import { FeedPanel, type FeedOwner } from './FeedPanel';
 import { FriendCardViewer } from './FriendCardViewer';
 import { CardTile, Stat, byPrice, groupBySet, valueParts } from './ProfileParts';
+import { ProfileEditor } from './ProfileEditor';
 import { ShowcaseEditor } from './ShowcaseEditor';
 import page from './Page.module.css';
 import styles from './Profile.module.css';
@@ -50,6 +53,7 @@ function MyProfile({ uid }: { uid: string }) {
   const { cards, byId, ready, error, retry } = useOwned();
   const views = useCardViews(cards, ready);
   const [editing, setEditing] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
   const showcase = showcaseOf(member);
   const name = member?.displayName ?? user?.displayName ?? 'Без имени';
   const photoURL = member?.photoURL ?? user?.photoURL ?? null;
@@ -69,7 +73,8 @@ function MyProfile({ uid }: { uid: string }) {
         views={views}
         showcase={showcase}
         onEditShowcase={() => setEditing(true)}
-        tile={(view, size) => <CardTile view={view} size={size} href={cardHref(view)} />}
+        onEditProfile={member ? () => setEditingProfile(true) : undefined}
+        tile={(view) => <CardTile view={view} href={cardHref(view)} />}
         feed={
           <FeedPanel
             title="Новое в альбоме"
@@ -81,6 +86,14 @@ function MyProfile({ uid }: { uid: string }) {
         }
       />
       <ShowcaseEditor open={editing} uid={uid} views={views} owned={byId} current={showcase} onClose={() => setEditing(false)} />
+      <ProfileEditor
+        open={editingProfile}
+        uid={uid}
+        displayName={name}
+        photoURL={photoURL}
+        googlePhoto={user?.photoURL && user.photoURL.length <= 2048 ? user.photoURL : null}
+        onClose={() => setEditingProfile(false)}
+      />
     </>
   );
 }
@@ -119,15 +132,15 @@ function FriendProfile({ uid, onRetry }: { uid: string; onRetry: () => void }) {
     );
   }
 
-  const missing = mine.ready && views ? views.filter((view) => !mine.byId.has(view.docId)).sort(byPrice) : null;
+  // Карты витрины уже стоят выше: в «Нет у тебя» — только остальные карты альбома
+  const showcased = new Set(person.showcase);
+  const missing =
+    mine.ready && views ? views.filter((view) => !mine.byId.has(view.docId) && !showcased.has(view.docId)).sort(byPrice) : null;
 
   return (
     <>
       <div className={styles.crumbs}>
-        <Link href="/friends" className={styles.back}>
-          <BackIcon size={18} stroke={2} />
-          Друзья
-        </Link>
+        <Crumbs items={[{ label: 'Друзья', href: '/friends' }, { label: person.displayName }]} />
       </div>
       <ProfileView
         name={person.displayName}
@@ -139,7 +152,7 @@ function FriendProfile({ uid, onRetry }: { uid: string; onRetry: () => void }) {
         onRetry={onRetry}
         views={views}
         showcase={person.showcase}
-        tile={(view, size) => <CardTile view={view} size={size} onOpen={() => setOpen(view)} />}
+        tile={(view) => <CardTile view={view} onOpen={() => setOpen(view)} />}
         feed={
           <FeedPanel
             title="Новое в альбоме"
@@ -156,13 +169,13 @@ function FriendProfile({ uid, onRetry }: { uid: string; onRetry: () => void }) {
                   Нет у тебя
                 </h2>
                 <span className={styles.muted}>
-                  Этих карт нет в твоём альбоме: {countLabel(missing.length, CARD_FORMS)}
+                  {showcased.size > 0 ? 'Кроме витрины, этих' : 'Этих'} карт нет в твоём альбоме: {countLabel(missing.length, CARD_FORMS)}
                   {missing.length > MISSING_LIMIT ? ', здесь самые дорогие' : ''}
                 </span>
               </div>
-              <div className={styles.smallGrid}>
+              <div className={styles.cards}>
                 {missing.slice(0, MISSING_LIMIT).map((view) => (
-                  <CardTile key={view.docId} view={view} size="small" onOpen={() => setOpen(view)} />
+                  <CardTile key={view.docId} view={view} onOpen={() => setOpen(view)} />
                 ))}
               </div>
             </section>
@@ -186,14 +199,31 @@ type ViewProps = {
   views: CardView[] | null;
   showcase: string[];
   onEditShowcase?: () => void;
-  tile: (view: CardView, size: 'normal' | 'small') => ReactNode;
+  /** «Изменить профиль»: имя и фото (только свой профиль) */
+  onEditProfile?: () => void;
+  tile: (view: CardView) => ReactNode;
   /** Разделы под витриной */
   extra?: ReactNode;
   /** Правая колонка из макета: лента новых карт */
   feed?: ReactNode;
 };
 
-function ProfileView({ name, photoURL, since, mine, album, albumError, onRetry, views, showcase, onEditShowcase, tile, extra, feed }: ViewProps) {
+function ProfileView({
+  name,
+  photoURL,
+  since,
+  mine,
+  album,
+  albumError,
+  onRetry,
+  views,
+  showcase,
+  onEditShowcase,
+  onEditProfile,
+  tile,
+  extra,
+  feed,
+}: ViewProps) {
   const [, navigate] = useLocation();
   const [tab, setTab] = useState<'show' | 'all'>('show');
   const loaded = views ?? [];
@@ -204,6 +234,7 @@ function ProfileView({ name, photoURL, since, mine, album, albumError, onRetry, 
   const shown = pickShowcase(showcase, loaded);
   const emptySlots = mine && views && views.length > 0 ? MAX_SHOWCASE - shown.length : 0;
   const empty = album === 'ready' && views !== null && views.length === 0;
+  const canEditShowcase = mine && Boolean(onEditShowcase) && album !== 'error' && !empty;
 
   let body: ReactNode;
   if (album === 'error') {
@@ -262,7 +293,7 @@ function ProfileView({ name, photoURL, since, mine, album, albumError, onRetry, 
                   </span>
                 </div>
                 {!views ? (
-                  <SkeletonArea label="Загружаю альбом…" className={styles.grid}>
+                  <SkeletonArea label="Загружаю альбом…" className={styles.cards}>
                     {Array.from({ length: MAX_SHOWCASE }, (_, index) => (
                       <Skeleton key={index} shape="card" />
                     ))}
@@ -270,9 +301,9 @@ function ProfileView({ name, photoURL, since, mine, album, albumError, onRetry, 
                 ) : shown.length === 0 && !mine ? (
                   <p className={styles.muted}>Витрина пока пуста.</p>
                 ) : (
-                  <div className={styles.grid}>
+                  <div className={styles.cards}>
                     {shown.map((view) => (
-                      <div key={view.docId}>{tile(view, 'normal')}</div>
+                      <div key={view.docId}>{tile(view)}</div>
                     ))}
                     {Array.from({ length: emptySlots }, (_, index) => (
                       <button key={index} type="button" className={styles.slot} onClick={onEditShowcase}>
@@ -290,7 +321,7 @@ function ProfileView({ name, photoURL, since, mine, album, albumError, onRetry, 
               {!views && (
                 <SkeletonArea label="Загружаю альбом…" className={styles.panel}>
                   <Skeleton shape="text" width="9em" />
-                  <div className={styles.albumGrid}>
+                  <div className={styles.cards}>
                     {Array.from({ length: 8 }, (_, index) => (
                       <Skeleton key={index} shape="card" />
                     ))}
@@ -304,9 +335,9 @@ function ProfileView({ name, photoURL, since, mine, album, albumError, onRetry, 
                     <span className={styles.muted}>{countLabel(group.cards.length, CARD_FORMS)}</span>
                     {group.note && <span className={styles.muted}>{group.note}</span>}
                   </div>
-                  <div className={styles.albumGrid}>
+                  <div className={styles.cards}>
                     {group.cards.map((view) => (
-                      <div key={view.docId}>{tile(view, 'normal')}</div>
+                      <div key={view.docId}>{tile(view)}</div>
                     ))}
                   </div>
                 </section>
@@ -322,7 +353,9 @@ function ProfileView({ name, photoURL, since, mine, album, albumError, onRetry, 
   return (
     <>
       <section className={styles.top}>
-        <Avatar src={photoURL} name={name} size={88} />
+        <span className={styles.avatar}>
+          <Avatar src={photoURL} name={name} size={88} />
+        </span>
         <div className={styles.identity}>
           <h1 className={styles.name}>{name}</h1>
           {(since || mine) && (
@@ -334,11 +367,18 @@ function ProfileView({ name, photoURL, since, mine, album, albumError, onRetry, 
           <Stat value={value?.main ?? pending} label="стоимость" note={value?.note} />
           <Stat value={totals ? formatInteger(totals.sets) : pending} label={totals ? pluralWord(totals.sets, SET_FORMS) : 'сетов'} />
         </div>
-        {mine && onEditShowcase && album !== 'error' && !empty && (
+        {mine && (onEditProfile || canEditShowcase) && (
           <div className={styles.actions}>
-            <Button className={styles.action} start={<PencilIcon size={16} stroke={2} />} onClick={onEditShowcase}>
-              Изменить витрину
-            </Button>
+            {onEditProfile && (
+              <Button className={cx(styles.action, styles.secondary)} start={<UserIcon size={16} stroke={2} />} onClick={onEditProfile}>
+                Изменить профиль
+              </Button>
+            )}
+            {canEditShowcase && (
+              <Button className={styles.action} start={<PencilIcon size={16} stroke={2} />} onClick={onEditShowcase}>
+                Изменить витрину
+              </Button>
+            )}
           </div>
         )}
       </section>
@@ -352,16 +392,23 @@ function ProfileSkeleton() {
   return (
     <SkeletonArea label="Загружаю профиль…" className={styles.skeleton}>
       <div className={styles.top}>
-        <Skeleton shape="circle" width={88} height={88} />
+        <span className={styles.avatar}>
+          <Skeleton shape="circle" width={88} height={88} />
+        </span>
         <div className={styles.identity}>
           <Skeleton shape="text" width="6em" className={styles.name} />
           <Skeleton shape="text" width="9em" className={styles.meta} />
+        </div>
+        <div className={styles.stats}>
+          <Stat value={<Skeleton shape="text" width="2.2em" />} label="карточек" />
+          <Stat value={<Skeleton shape="text" width="3.6em" />} label="стоимость" />
+          <Stat value={<Skeleton shape="text" width="1.6em" />} label="сетов" />
         </div>
       </div>
       <div className={styles.tabs}>
         <Skeleton shape="text" width="12em" className={styles.skeletonTabs} />
       </div>
-      <div className={styles.grid}>
+      <div className={styles.cards}>
         {Array.from({ length: MAX_SHOWCASE }, (_, index) => (
           <Skeleton key={index} shape="card" />
         ))}

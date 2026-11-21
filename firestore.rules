@@ -100,9 +100,19 @@ service cloud.firestore {
           && request.resource.data.role in ['admin', 'user'];
       }
 
+      // Имя и фото: как при вступлении, или своё фото — WebP data URL до 32 000 символов
+      // (MAX_PHOTO_LENGTH в src/lib/profile-edit.ts): Storage нет, фото лежит прямо в photoURL
       function updatesProfile() {
-        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL'])
-          && validProfile(request.resource.data);
+        let data = request.resource.data;
+        return data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL'])
+          && (validProfile(data)
+            || (validProfile({'displayName': data.displayName, 'photoURL': null}) && ownPhoto(data.photoURL)));
+      }
+
+      function ownPhoto(photo) {
+        return photo is string
+          && photo.size() <= 32000
+          && photo.matches('data:image/webp;base64,[A-Za-z0-9+/]+=*');
       }
 
       // Счётчик минус один, lastInvite — новый код, и этот код создаётся в той же записи
