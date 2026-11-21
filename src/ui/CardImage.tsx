@@ -15,7 +15,7 @@ type Props = {
   name: string;
   /** Номер для текстовой заглушки */
   number?: string;
-  /** Значок языка в углу */
+  /** Язык карты: у неанглийских — значок в углу, английские без значка (их в альбоме большинство) */
   lang?: CardLanguage;
   quality?: 'low' | 'high';
   className?: string;
@@ -51,7 +51,7 @@ export function CardImage({ image, limitless, thumb, name, number, lang, quality
           {number && <span className={styles.textNumber}>{number}</span>}
         </div>
       )}
-      {lang && (
+      {lang && lang !== 'en' && (
         <span className={styles.badge} title={LANGUAGE_LABELS[lang].card}>
           {LANGUAGE_LABELS[lang].short}
         </span>

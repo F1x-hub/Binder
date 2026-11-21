@@ -1,23 +1,32 @@
+/* Ширину панели меряет container query: раскладка зависит от места под альбом, а не от окна */
 .wrap {
+  container: filters / inline-size;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
+/* ---------- Строка управления ---------- */
+
+/* Средняя ширина: поиск, «Фильтры», чипы, сортировка — одной строкой */
 .bar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(160px, 260px) auto minmax(0, 1fr) auto;
+  grid-template-areas: 'search toggle chips sort';
   align-items: center;
   gap: 8px;
 }
 
-/* Поиск — такой же «чип», как фильтры рядом */
+.inlineOnly.inlineOnly {
+  display: none;
+}
+
 .search {
+  grid-area: search;
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 220px;
-  max-width: 100%;
+  min-width: 0;
   height: 44px;
   padding: 0 12px 0 14px;
   box-sizing: border-box;
@@ -65,6 +74,7 @@
   width: auto;
   height: 44px;
   justify-content: flex-start;
+  white-space: nowrap;
   background: var(--surface);
   color: var(--text);
   font-weight: 500;
@@ -82,9 +92,135 @@
   color: currentColor;
 }
 
+/* «Фильтры» / «Ещё фильтры»: открывает панель со всеми списками */
+.toggle {
+  grid-area: toggle;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.toggle:hover {
+  border-color: var(--muted);
+}
+
+.toggle:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toggleOpen,
+.toggleOpen:hover {
+  border-color: var(--text);
+}
+
+.wideText,
+.narrowText {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wideText {
+  display: none;
+}
+
+/* Число включённых фильтров на кнопке */
+.count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: var(--radius-inner);
+  background: var(--selected);
+  color: var(--on-selected);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Чипы включённых фильтров: крестик снимает один, «Сбросить» — все. Не помещаются — листаются вбок */
+.chips {
+  grid-area: chips;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* край ленты гаснет: видно, что чипы листаются дальше */
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  /* место под кольцо фокуса, которое иначе обрежет прокрутка */
+  padding-block: 4px;
+  margin-block: -4px;
+  padding-inline: 4px;
+  margin-inline: -4px;
+}
+
+.chips li {
+  flex-shrink: 0;
+}
+
+.chipTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  height: 44px;
+  padding: 0 10px 0 12px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chipTag svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.chipTag:hover {
+  border-color: var(--muted);
+}
+
+.chipTag:hover svg {
+  color: var(--text);
+}
+
+.chipTag:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.chipText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .reset {
   height: 44px;
-  padding: 0 12px;
+  padding: 0 10px;
   border: none;
   border-radius: var(--radius-control);
   background: transparent;
@@ -92,6 +228,7 @@
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -101,11 +238,12 @@
 
 .reset:focus-visible {
   outline: 3px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: -3px;
 }
 
 .sort {
-  margin-left: auto;
+  grid-area: sort;
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -114,14 +252,140 @@
 .sortLabel {
   font-size: 14px;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .sortSelect.sortSelect {
   width: auto;
 }
 
+/* ---------- Панель «Фильтры» ---------- */
+
+.panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-panel);
+  border: var(--border) solid var(--line);
+  background: var(--surface);
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.fieldSelect.fieldSelect {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  justify-content: space-between;
+}
+
 .note {
   margin: 0;
   font-size: 13px;
   color: var(--muted);
+}
+
+/* ---------- Широкая панель: главные фильтры в строке ---------- */
+
+@container filters (min-width: 1100px) {
+  .bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .search {
+    flex: 0 1 240px;
+    min-width: 160px;
+  }
+
+  .inlineOnly.inlineOnly {
+    display: inline-flex;
+    flex: none;
+  }
+
+  .wideText {
+    display: inline-flex;
+  }
+
+  .narrowText {
+    display: none;
+  }
+
+  /* Главные фильтры уже в строке: в панели остаются язык, состояние и цена */
+  .panelPrimary {
+    display: none;
+  }
+
+  /* Без языка, состояния и цены кнопке и панели нечего показать */
+  .noSecondary .toggle,
+  .noSecondary + .panel {
+    display: none;
+  }
+
+  .sort {
+    margin-left: auto;
+  }
+
+  /* Чипы — своей строкой под фильтрами, только когда что-то включено */
+  .chips {
+    order: 10;
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+    overflow: visible;
+    mask-image: none;
+  }
+}
+
+/* Подпись сортировки уступает место чипам */
+@container filters (max-width: 1099px) {
+  .sortLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* ---------- Узкая панель: две строки до карт ---------- */
+
+@container filters (max-width: 599px) {
+  .bar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'search search sort'
+      'toggle chips chips';
+  }
+
+  .sortSelect.sortSelect {
+    padding-left: 10px;
+  }
+
+  .panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px;
+  }
+
+  /* Имена сетов длинные («Scarlet & Violet Energy»): сету — вся ширина */
+  .fieldSet {
+    grid-column: 1 / -1;
+  }
 }
