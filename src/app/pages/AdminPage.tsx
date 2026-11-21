@@ -164,12 +164,16 @@ function KeysPanel({ uid }: { uid: string }) {
           </div>
           <div>
             <dt>Сегодня осталось</dt>
-            <dd>{known.length > 0 ? `${dayLeft} из ${dayLimit}` : '—'}</dd>
+            <dd>{known.length > 0 ? `${dayLeft} из ${dayLimit}` : 'пока неизвестно'}</dd>
           </div>
         </dl>
       )}
-      {known.length > 0 && known.length < enabled.length && (
-        <p className={styles.muted}>Остаток считается по ключам, которые уже отвечали в этом браузере. Нажми «Проверить» у остальных.</p>
+      {known.length < enabled.length && (
+        <p className={styles.muted}>
+          {known.length > 0
+            ? 'Остаток считается по ключам, которые уже отвечали в этом браузере. Нажми «Проверить» у остальных.'
+            : 'Остаток станет известен, когда ключи ответят в этом браузере. «Проверить» у ключа потратит один запрос.'}
+        </p>
       )}
 
       {showLegacy && (

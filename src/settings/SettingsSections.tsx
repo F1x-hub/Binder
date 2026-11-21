@@ -17,13 +17,16 @@ import styles from './SettingsSections.module.css';
  */
 export type SettingsLayout = 'popup' | 'page';
 
+/** soon — вариант ещё не сделан: виден, но выбрать его нельзя. */
 const PHOTO_STORES = [
-  { id: 'none', label: 'Не хранить, только для сканера' },
-  { id: 'drive', label: 'Сохранять в мой Google Drive' },
-  { id: 'cloud', label: 'Сохранять превью в облаке Binder' },
+  { id: 'none', label: 'Не хранить, только для сканера', soon: false },
+  { id: 'drive', label: 'Сохранять в мой Google Drive', soon: true },
+  { id: 'cloud', label: 'Сохранять превью в облаке Binder', soon: true },
 ] as const;
 
-const PHOTO_NOTE = 'Хранение фото появится позже. Сейчас фото нужно только сканеру.';
+const PHOTO_NOTE = 'Сейчас фото нужно только сканеру и после распознавания не хранится. Google Drive и облако Binder появятся позже.';
+/** В поп-апе места мало, а «скоро» у вариантов уже говорит, что они появятся позже. */
+const PHOTO_NOTE_SHORT = 'Сейчас фото нужно только сканеру и после распознавания не хранится.';
 
 type SectionsProps = {
   layout: SettingsLayout;
@@ -41,13 +44,14 @@ export function SettingsSections({ layout, theme, onTheme }: SectionsProps) {
 
   const keys = <DeepseekKeyField />;
   const themes = <ThemePicker value={theme} onChange={onTheme} labelledBy={themeTitle} />;
-  // Хранение фото ещё не сделано: выбор заблокирован на «Не хранить»
+  // Хранение фото ещё не сделано: доступен только вариант «Не хранить», остальные приглушены с пометкой «скоро»
   const photos = (
     <div role="radiogroup" aria-labelledby={photosTitle} className={styles.radios}>
-      {PHOTO_STORES.map(({ id, label }) => (
-        <label key={id} className={styles.radio}>
-          <input type="radio" name="photo-store" value={id} defaultChecked={id === 'none'} disabled />
+      {PHOTO_STORES.map(({ id, label, soon }) => (
+        <label key={id} className={soon ? `${styles.radio} ${styles.radioSoon}` : styles.radio}>
+          <input type="radio" name="photo-store" value={id} defaultChecked={id === 'none'} disabled={soon} />
           <span>{label}</span>
+          {soon && <span className={styles.soon}>скоро</span>}
         </label>
       ))}
     </div>
@@ -68,7 +72,7 @@ export function SettingsSections({ layout, theme, onTheme }: SectionsProps) {
             Мои фото карточек
           </h2>
           {photos}
-          <p className={styles.note}>{PHOTO_NOTE}</p>
+          <p className={styles.note}>{PHOTO_NOTE_SHORT}</p>
         </section>
       </>
     );

@@ -13,7 +13,6 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 960px;
 }
 
 .panel {
@@ -25,6 +24,12 @@
   background: var(--surface);
   border: var(--border) solid var(--line);
   box-shadow: var(--panel-shadow);
+}
+
+@media (width < 560px) {
+  .panel {
+    padding: 20px 16px;
+  }
 }
 
 .panelHead {
@@ -48,8 +53,8 @@
 
 /* Сводка: сколько ключей включено и сколько запросов осталось */
 .summary {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 200px));
   gap: 12px;
   margin: 0;
 }
@@ -58,7 +63,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 160px;
+  min-width: 0;
   padding: 12px 16px;
   border-radius: var(--radius-control);
   background: var(--surface-2);
@@ -104,7 +109,7 @@
   grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: start;
   gap: 8px 16px;
-  padding: 16px 0;
+  padding: 14px 0;
   border-bottom: var(--border) solid var(--line);
 }
 
@@ -116,6 +121,18 @@
 
   .key .actions {
     grid-column: 2;
+  }
+
+  /* Две строки действий: «Проверить» и «Включён», ниже порядок и удаление — сдвоенная кнопка не разрывается */
+  .key .actions::after {
+    content: '';
+    order: 1;
+    flex-basis: 100%;
+  }
+
+  .key .actions > .iconButton,
+  .key .actions > .ghost:last-child {
+    order: 2;
   }
 }
 
@@ -143,10 +160,26 @@
   min-width: 0;
 }
 
-.labelInput {
+/* Название ключа правится на месте: рамка видна при наведении и в фокусе, в покое это заголовок строки */
+.key .labelInput {
   height: 44px;
   max-width: 320px;
+  margin-left: -10px;
+  padding: 0 10px;
+  border-color: transparent;
+  background: transparent;
   font-weight: 600;
+}
+
+.key .labelInput:hover,
+.key .labelInput:focus {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.keyMain .keyLine,
+.keyMain .hint {
+  margin-top: -2px;
 }
 
 .keyLine {
@@ -205,6 +238,30 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+/* Вверх и вниз — одна сдвоенная кнопка порядка */
+.actions .iconButton + .iconButton {
+  margin-left: -8px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.actions .iconButton:has(+ .iconButton) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right-width: 0;
+}
+
+/* Удаление ключа и «Убрать из клуба» — последнее действие строки, без рамки: рамки у пяти кнопок подряд сливались в забор.
+   После первого нажатия кнопка становится главной (.danger). */
+.actions > .ghost:last-child:not(.danger) {
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.actions > .ghost:last-child:not(.danger):hover:not(:disabled) {
+  color: var(--text);
 }
 
 .ghost,

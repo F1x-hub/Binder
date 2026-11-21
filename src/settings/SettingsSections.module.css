@@ -36,10 +36,32 @@
 }
 
 .radio input {
+  flex: none;
   width: 18px;
   height: 18px;
   margin: 0;
   accent-color: var(--accent);
+}
+
+/* Вариант ещё не сделан: кружок бледный, текст второстепенный (не прозрачный, чтобы контраст остался 4.5:1) и пометка «скоро» */
+.radioSoon {
+  color: var(--muted);
+  cursor: default;
+}
+
+.radioSoon input {
+  opacity: 0.45;
+}
+
+.soon {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--radius-inner);
+  border: var(--border) solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .note {
