@@ -7,6 +7,7 @@ import {
   soonestRelease,
   usableKeys,
   type BlockReason,
+  type KeyStates,
   type UsageMetadata,
 } from '@/lib/justtcg-keys';
 import { cacheGet, cachePut } from '@/lib/kv-cache';
@@ -52,6 +53,27 @@ export type JusttcgAuth = string | string[];
 
 type WithUsage<T> = T & { _metadata?: UsageMetadata };
 
+/**
+ * Где очередь помнит, какой ключ упёрся в лимит. В браузере — chrome.storage.local
+ * (src/lib/justtcg-keys.ts). Ежедневная задача (scripts/refresh-prices.ts) держит это в памяти
+ * и ещё сама выдерживает темп: pace ждёт перед каждым запросом, чтобы не упереться в 10 в минуту.
+ */
+export type KeyStateStore = {
+  load(): Promise<KeyStates>;
+  success(key: string, metadata: UsageMetadata | undefined, now: number): Promise<void>;
+  block(key: string, reason: BlockReason, now: number): Promise<void>;
+  pace?(key: string): Promise<void>;
+};
+
+const browserStore: KeyStateStore = { load: loadKeyStates, success: noteSuccess, block: noteBlock };
+let keyStore: KeyStateStore = browserStore;
+
+/** Подменить хранилище состояния ключей; без аргумента — снова chrome.storage.local. */
+export function setKeyStateStore(store: KeyStateStore = browserStore): void {
+  keyStore = store;
+  setsMemo = null;
+}
+
 async function quietly(task: () => Promise<unknown>): Promise<void> {
   try {
     await task();
@@ -95,7 +117,7 @@ async function call<T>(auth: JusttcgAuth, path: string, body?: unknown): Promise
   const now = Date.now();
   const all = typeof auth === 'string' ? [auth.trim()] : auth;
   if (all.length === 0 || all.every((key) => !key)) throw new JusttcgError('no-key');
-  const states = typeof auth === 'string' ? {} : await loadKeyStates().catch(() => ({}));
+  const states = typeof auth === 'string' ? {} : await keyStore.load().catch(() => ({}));
   const keys = usableKeys(all, states, now);
   if (keys.length === 0) {
     const until = soonestRelease(all, states);
@@ -106,15 +128,16 @@ async function call<T>(auth: JusttcgAuth, path: string, body?: unknown): Promise
   let last: JusttcgError | null = null;
   for (const key of keys) {
     try {
+      await keyStore.pace?.(key);
       const result = await request<T>(key, path, body);
-      await quietly(() => noteSuccess(key, result._metadata, now));
+      await quietly(() => keyStore.success(key, result._metadata, Date.now()));
       return result;
     } catch (error) {
       if (!(error instanceof JusttcgError)) throw error;
       if (error.reason !== 'rate-limit' && error.reason !== 'invalid-key') throw error;
       const reason: BlockReason = error.reason === 'invalid-key' ? 'invalid' : (error.window ?? 'minute');
-      await quietly(() => noteBlock(key, reason, now));
-      blocked.push({ reason, until: blockUntil(reason, now) });
+      await quietly(() => keyStore.block(key, reason, Date.now()));
+      blocked.push({ reason, until: blockUntil(reason, Date.now()) });
       last = error;
     }
   }
@@ -158,8 +181,12 @@ export function findSet(sets: JusttcgSet[], code: string): JusttcgSet | null {
   return sets.find((set) => setCodeOf(set.name) === wanted) ?? null;
 }
 
+/** Список сетов в памяти, где нет кэша IndexedDB (ежедневная задача под Node): один запрос на запуск. */
+let setsMemo: JusttcgSet[] | null = null;
+
 /** Все японские сеты: один запрос в неделю. */
 async function japaneseSets(auth: JusttcgAuth): Promise<JusttcgSet[]> {
+  if (keyStore !== browserStore && setsMemo) return setsMemo;
   const known = await cacheGet<JusttcgSet[]>('justtcg:sets', 7 * DAY);
   if (known) return known;
   const body = await call<{ data?: Array<{ id?: unknown; name?: unknown }> }>(auth, `/v1/sets?game=${GAME}`);
@@ -167,6 +194,7 @@ async function japaneseSets(auth: JusttcgAuth): Promise<JusttcgSet[]> {
     typeof set.id === 'string' && typeof set.name === 'string' ? [{ id: set.id, name: set.name }] : [],
   );
   if (sets.length > 0) void cachePut('justtcg:sets', sets);
+  if (sets.length > 0 && keyStore !== browserStore) setsMemo = sets;
   return sets;
 }
 

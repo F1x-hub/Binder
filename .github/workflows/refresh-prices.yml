@@ -1,0 +1,34 @@
+# Ежедневное освежение цен клуба: TCGdex и доллары JustTCG японских карт в prices/… (Firestore binder-54fb1).
+# Скрипт — scripts/refresh-prices.ts, ключ сервисного аккаунта Firebase — секрет FIREBASE_SERVICE_ACCOUNT (JSON).
+name: Цены клуба
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # 03:00 UTC: дневные лимиты JustTCG сброшены в полночь UTC
+  workflow_dispatch:
+
+# Токену GitHub нужно только прочитать репозиторий
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-prices
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # Скрипты установки не нужны: задаче не нужна подготовка WXT, а у npm 10 нет allowScripts из package.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run prices:refresh
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

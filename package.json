@@ -12,7 +12,9 @@
     "test": "vitest run",
     "postinstall": "wxt prepare",
     "test:rules": "firebase emulators:exec --only firestore --project demo-binder \"vitest run --config vitest.rules.config.ts\"",
-    "test:live": "vitest run --config vitest.live.config.ts"
+    "test:live": "vitest run --config vitest.live.config.ts",
+    "prices:build": "vite build --config scripts/vite.config.ts",
+    "prices:refresh": "npm run prices:build && node .output/scripts/refresh-prices.mjs"
   },
   "dependencies": {
     "@fontsource/onest": "5.3.1",
@@ -30,6 +32,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.2.1",
     "@wxt-dev/module-react": "1.2.2",
+    "firebase-admin": "14.5.0",
     "firebase-tools": "15.35.0",
     "typescript": "7.0.2",
     "vite": "8.3.6",

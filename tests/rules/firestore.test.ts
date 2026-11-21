@@ -514,43 +514,27 @@ describe('альбом участника', () => {
 describe('общий кэш цен', () => {
   const price = { cards: { 'sv03-125': { u: 4.88, e: 3.88, d: '2026-11-20' } } };
 
-  it('участник читает и освежает цены сета и историю', async () => {
+  // Цены пишет только ежедневная задача (Admin SDK); случаи записи — в prices-readonly.test.ts
+  it('участник читает цены сета и историю', async () => {
     await seedMember('alice');
-    await assertSucceeds(setDoc(doc(as('alice'), 'prices/sv03'), price, { merge: true }));
-    await assertSucceeds(
-      setDoc(doc(as('alice'), 'prices/sv03/months/2026-11'), { 'sv03-125': { '20': { u: 4.88, e: 3.88 } } }, { merge: true }),
-    );
+    await seed('prices/sv03', price);
+    await seed('prices/sv03/months/2026-11', { 'sv03-125': { '20': { u: 4.88, e: 3.88 } } });
     await assertSucceeds(getDoc(doc(as('alice'), 'prices/sv03')));
     await assertSucceeds(getDoc(doc(as('alice'), 'prices/sv03/months/2026-11')));
-    // У японского каталога свой документ: ID сета с языком каталога
-    await assertSucceeds(
-      setDoc(doc(as('alice'), 'prices/ja_SV2a'), { cards: { 'SV2a-094': { u: null, e: 0.2, d: '2026-11-20' } } }, { merge: true }),
-    );
   });
 
-  it('посторонний не читает и не пишет цены', async () => {
+  it('посторонний не читает цены', async () => {
     await seed('prices/sv03', price);
     await assertFails(getDoc(doc(as('mallory'), 'prices/sv03')));
-    await assertFails(setDoc(doc(as('mallory'), 'prices/sv03'), price, { merge: true }));
     await assertFails(getDoc(doc(guest(), 'prices/sv03')));
   });
 
-  it('в документе цен только карты, а месяц записан как ГГГГ-ММ', async () => {
-    await seedMember('alice');
-    await assertFails(setDoc(doc(as('alice'), 'prices/sv03'), { ...price, owner: 'alice' }));
-    await assertFails(setDoc(doc(as('alice'), 'prices/sv03'), { cards: 'cheap' }));
-    await assertFails(setDoc(doc(as('alice'), 'prices/sv03/months/november'), { 'sv03-125': {} }));
-  });
-
-  it('цены JustTCG японских карт: участник пишет и читает prices/jt_{код}, посторонний — нет', async () => {
+  it('цены JustTCG японских карт: участник читает prices/jt_{код}, посторонний — нет', async () => {
     await seedMember('alice');
     const entry = { '3': { d: '2026-11-20', j: 'pokemon-japan-mbg-mega-gengar-ex', n: 'Mega Gengar ex', v: { Holofoil: 5.81 } } };
-    await assertSucceeds(setDoc(doc(as('alice'), 'prices/jt_MBG'), { cards: entry }, { merge: true }));
-    await assertSucceeds(
-      setDoc(doc(as('alice'), 'prices/jt_MBG/months/2026-11'), { '3': { '20': { Holofoil: 5.81 } } }, { merge: true }),
-    );
+    await seed('prices/jt_MBG', { cards: entry });
     await assertSucceeds(getDoc(doc(as('alice'), 'prices/jt_MBG')));
-    await assertFails(setDoc(doc(as('mallory'), 'prices/jt_MBG'), { cards: entry }));
+    await assertFails(getDoc(doc(as('mallory'), 'prices/jt_MBG')));
   });
 
   it('без своего ключа JustTCG цена японской карты берётся из общего кэша клуба', async () => {
