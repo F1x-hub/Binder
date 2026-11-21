@@ -219,3 +219,14 @@
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: 18px 16px;
 }
+
+/* Заглушка профиля друга, пока читается документ участника: те же отступы, что у страницы */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.skeletonTabs {
+  margin-block: 12px;
+}

@@ -53,6 +53,7 @@
 /* Аватар ведёт в профиль: сам он 32 px, зона нажатия 44 px */
 .avatar {
   display: flex;
+  color: var(--text);
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -240,6 +241,113 @@
 .more:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Под лентой: например, что часть альбомов не загрузилась, и кнопка «Обновить» */
+.warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Заглушка строки ленты */
+.skeletonText {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/*
+ * Широкая лента: главная колонка «Друзей» и главной. Событие — аватар, текст и галерея карт
+ * сразу под текстом; карты 72–90 px, столько в ряд, сколько влезает.
+ */
+.wide {
+  padding: 24px;
+}
+
+.wide .title {
+  font-size: 17px;
+}
+
+.wide .event {
+  padding: 16px 0;
+}
+
+.wideRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wideRow > .avatar {
+  margin: -2px 0 0 -2px;
+}
+
+.wideBody {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.wideBody > .text {
+  width: 100%;
+  font-size: 15px;
+}
+
+.gallery {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 8px;
+}
+
+/* На телефоне панель теснее: в ряд встают три-четыре карты, а не две крупные */
+@media (max-width: 560px) {
+  .wide {
+    padding: 16px;
+  }
+
+  .wideRow > .avatar {
+    margin-right: -6px;
+  }
+}
+
+/* Галерея не растягивает карты шире 90 px: на широкой колонке они стоят слева рядком */
+@container feed (min-width: 640px) {
+  .gallery {
+    grid-template-columns: repeat(auto-fill, minmax(78px, 90px));
+  }
+}
+
+.wide {
+  container: feed / inline-size;
+}
+
+.wideBody > .more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: -4px;
+}
+
+.wideBody > .restLink {
+  margin-top: -10px;
 }
 
 @media (prefers-reduced-motion: reduce) {
