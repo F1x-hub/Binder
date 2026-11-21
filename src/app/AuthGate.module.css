@@ -1,42 +1,185 @@
-.actions {
+/* Вход и вступление: одна карточка по центру свободного места под шапкой */
+.stage {
+  min-height: clamp(480px, calc(100vh - 200px), 760px);
+  display: grid;
+  place-items: center;
+  container-type: inline-size;
+}
+
+.card {
+  width: min(100%, 920px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  overflow: hidden;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+/* Левая половина: веер карт на второй поверхности */
+.hero {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 16px;
+  flex-direction: column;
+  gap: 24px;
+  padding: 32px;
+  background: var(--surface-2);
+  border-right: var(--border) solid var(--line);
 }
 
-.actions .button,
-.joinRow .button {
-  width: auto;
+.fan {
+  position: relative;
+  flex: 1;
+  min-height: 260px;
 }
 
-.error {
+/*
+ * Карты веера — CardStub со своим `position: relative`. Порядок модулей в собранном CSS
+ * не задан, поэтому селектор через .fan (два класса) сильнее при любом порядке.
+ */
+.fan > .fanCard {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 136px;
+  margin: -95px 0 0 -68px;
+  box-shadow: var(--card-shadow);
+}
+
+.fan > .left {
+  transform: translate(-104px, 14px) rotate(-12deg);
+}
+
+.fan > .right {
+  transform: translate(104px, 14px) rotate(12deg);
+}
+
+.fan > .center {
+  transform: translateY(-6px);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 44px 44px 40px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: round(calc(30px * var(--display-scale)), 1px);
+  line-height: 1.2;
+  letter-spacing: var(--display-tracking);
+  text-wrap: balance;
+}
+
+.lead {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.account {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  border: var(--border) solid var(--line);
   font-size: 14px;
+  line-height: 1.4;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.email {
+  color: var(--text);
   font-weight: 600;
 }
 
-.join {
+.form {
+  margin-top: 28px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.joinRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-.codeField {
-  width: 220px;
+  gap: 14px;
 }
 
 .code {
   letter-spacing: 0.08em;
 }
 
-.join .signOut {
-  padding: 0;
+.hint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+/* Ошибка — заметная плашка на месте подсказки: экран не прыгает */
+.error {
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  border: var(--border) solid var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.form .signOut {
+  align-self: flex-start;
+  padding-inline: 0;
+}
+
+/* Узкая вкладка: веер сверху полосой, форма под ним во всю ширину */
+@container (max-width: 720px) {
+  .card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero {
+    padding: 8px 20px 0;
+    border-right: 0;
+    border-bottom: var(--border) solid var(--line);
+    overflow: hidden;
+  }
+
+  .fan {
+    flex: none;
+    min-height: 0;
+    height: 140px;
+  }
+
+  .fan > .fanCard {
+    top: 18px;
+    width: 96px;
+    margin: 0 0 0 -48px;
+  }
+
+  .fan > .left {
+    transform: translate(-74px, 14px) rotate(-12deg);
+  }
+
+  .fan > .right {
+    transform: translate(74px, 14px) rotate(12deg);
+  }
+
+  .fan > .center {
+    transform: none;
+  }
+
+  .body {
+    padding: 24px 20px 24px;
+  }
+
+  .title {
+    font-size: round(calc(26px * var(--display-scale)), 1px);
+  }
+
+  .form {
+    margin-top: 22px;
+  }
 }
