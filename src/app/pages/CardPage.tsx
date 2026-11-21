@@ -141,6 +141,7 @@ export function CardDetails({ view, uid }: { view: CardView; uid: string }) {
             </div>
           )}
           <CollectionPanel view={view} uid={uid} />
+          <AddToDeck view={view} uid={uid} />
         </div>
 
         <div className={styles.right}>
@@ -171,7 +172,6 @@ export function CardDetails({ view, uid }: { view: CardView; uid: string }) {
           <PricePanel view={view} />
           <FactsPanel view={view} text={text} />
           <FriendsPanel uid={uid} docId={view.docId} />
-          <AddToDeck view={view} uid={uid} />
         </div>
       </div>
 
@@ -403,7 +403,8 @@ function PricePanel({ view }: { view: CardView }) {
             <span className={cx(styles.priceChange, styles.neutral)}>в евро</span>
           </div>
         )}
-        {total !== null && (
+        {/* При одной копии сумма совпала бы с ценой карты */}
+        {total !== null && view.count > 1 && (
           <div className={styles.priceCell}>
             <span className={styles.priceLabel}>Мои копии: {view.count}</span>
             <span className={styles.priceValue}>{money(total, currency)}</span>
@@ -801,7 +802,7 @@ function FriendsPanel({ uid, docId }: { uid: string; docId: string }) {
   }, [uid, docId]);
 
   return (
-    <section className={styles.friends} aria-labelledby={titleId}>
+    <section className={cx(styles.panel, styles.friends)} aria-labelledby={titleId}>
       <h2 id={titleId} className={styles.panelTitle}>
         Есть у друзей
       </h2>
@@ -813,7 +814,7 @@ function FriendsPanel({ uid, docId }: { uid: string; docId: string }) {
         <div className={styles.chips}>
           {owners.map((owner) => (
             <Link key={owner.uid} href={`/u/${owner.uid}`} className={styles.chip}>
-              <Avatar src={owner.photoURL} size={32} />
+              <Avatar src={owner.photoURL} name={owner.name} size={32} />
               <span className={styles.chipName}>{owner.name}</span>
               <span className={styles.muted}>{countLabel(owner.count, ['шт.', 'шт.', 'шт.'])}</span>
             </Link>
