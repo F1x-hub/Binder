@@ -51,6 +51,53 @@
   color: #f4f4f5;
 }
 
+/* В 3D окно шире: сцене нужно место, чтобы тянуть карту рядом с ней */
+.dialog[data-mode='3d'] {
+  width: min(96vw, 640px);
+}
+
+/* «Плоско / В 3D» — слева вверху, напротив «Закрыть», на тёмной подложке */
+.modes {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(18, 18, 20, 0.7);
+}
+
+.modes button {
+  min-width: 44px;
+  height: 38px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(244, 244, 245, 0.78);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modes button[aria-pressed='true'] {
+  background: #f4f4f5;
+  color: #0a0a0b;
+}
+
+.modes button:focus-visible {
+  outline: 3px solid #f4f4f5;
+  outline-offset: 2px;
+}
+
+:global([data-theme='retro']) .modes,
+:global([data-theme='retro']) .modes button {
+  border-radius: 0;
+}
+
 .close:focus-visible {
   outline: 3px solid #f4f4f5;
   outline-offset: 2px;

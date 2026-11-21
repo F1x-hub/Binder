@@ -3,6 +3,11 @@
   width: min(100%, 360px);
 }
 
+/* Карта в 3D: под ней четыре строки о карте, поэтому окну нужен запас больше обычного */
+.card3d {
+  --card3d-reserve: 380px;
+}
+
 .text {
   display: flex;
   flex-direction: column;

@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Link } from 'wouter';
 import { formatCardPrice } from '@/lib/format';
 import { LANGUAGE_LABELS, htmlLang } from '@/lib/languages';
 import { displayNames } from '@/lib/names';
 import type { CardView } from '@/lib/useCardViews';
-import { CardViewer } from '@/ui/CardViewer';
+import { Card3D } from '@/ui/Card3D';
+import { CardViewer, type ViewMode } from '@/ui/CardViewer';
 import { TiltCard } from '@/ui/TiltCard';
 import { numberLabel } from './ProfileParts';
 import styles from './FriendCardViewer.module.css';
@@ -22,21 +24,36 @@ type Props = {
  * друга и ленты на странице «Друзья». Страница карточки (`#/card/…`) — только для своего альбома.
  */
 export function FriendCardViewer({ view, owner, mine, onClose }: Props) {
+  const [mode, setMode] = useState<ViewMode>('flat');
   const names = view ? displayNames(view.name, view.englishName) : null;
+  const close = () => {
+    setMode('flat');
+    onClose();
+  };
+  const card = view &&
+    names && {
+      image: view.image,
+      limitless: view.limitless,
+      thumb: view.thumb,
+      name: names.primary,
+      number: numberLabel(view),
+      holo: view.variant === 'holo' || view.variant === 'reverse',
+    };
   return (
-    <CardViewer open={view !== null} label={names ? `Карта ${names.primary}` : 'Карта'} onClose={onClose}>
-      {view && names && (
+    <CardViewer
+      open={view !== null}
+      label={names ? `Карта ${names.primary}` : 'Карта'}
+      onClose={close}
+      mode={mode}
+      onModeChange={setMode}
+    >
+      {view && names && card && (
         <>
-          <TiltCard
-            key={view.docId}
-            image={view.image}
-            limitless={view.limitless}
-            thumb={view.thumb}
-            name={names.primary}
-            number={numberLabel(view)}
-            holo={view.variant === 'holo' || view.variant === 'reverse'}
-            className={styles.card}
-          />
+          {mode === '3d' ? (
+            <Card3D key={view.docId} {...card} className={styles.card3d} />
+          ) : (
+            <TiltCard key={view.docId} {...card} className={styles.card} />
+          )}
           <div className={styles.text}>
             <p className={styles.name}>
               {names.primary} · {numberLabel(view)}

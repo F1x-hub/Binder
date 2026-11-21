@@ -1,0 +1,264 @@
+/*
+ * Карта в 3D на CSS. Размер карты — переменная --w: влезает и по ширине, и по высоте окна.
+ * Скругление настоящей карты — около 3 мм при 63 × 88 мм, то есть 4.6 % ширины;
+ * толщина торца для глаза — 1.1 % ширины (у настоящей карты меньше, ребром её было бы не видно).
+ */
+.root {
+  /* --card3d-reserve: сколько высоты окна оставить под кнопки и подписи; задаёт тот, кто ставит карту */
+  --w: min(420px, 78vw, calc((100dvh - var(--card3d-reserve, 280px)) * 63 / 88));
+  --h: calc(var(--w) * 88 / 63);
+  --t: max(3px, calc(var(--w) * 0.011));
+  --r: calc(var(--w) * 0.046);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Сцена шире карты: тянуть можно и рядом с ней, при повороте ребром карта не уходит из-под пальца */
+.stage {
+  display: grid;
+  place-items: center;
+  width: min(100%, calc(var(--w) * 1.5));
+  height: calc(var(--h) + 80px);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  border-radius: 14px;
+  outline: none;
+}
+
+.stage:focus-visible {
+  box-shadow: 0 0 0 2px rgba(244, 244, 245, 0.55);
+}
+
+.dragging {
+  cursor: grabbing;
+}
+
+.zoom {
+  perspective: calc(var(--w) * 5);
+  transition: transform 0.12s ease-out;
+  filter: drop-shadow(0 24px 36px rgba(0, 0, 0, 0.55));
+}
+
+.card {
+  position: relative;
+  width: var(--w);
+  height: var(--h);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 4.6% / 3.3%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: #1a1a1d;
+}
+
+.front {
+  transform: translateZ(calc(var(--t) / 2));
+}
+
+.back {
+  transform: rotateY(180deg) translateZ(calc(var(--t) / 2));
+}
+
+/* Скан заполняет грань целиком: скругление даёт сама грань */
+.image {
+  width: 100%;
+  height: 100%;
+}
+
+.image img,
+.image > div {
+  border-radius: 0;
+}
+
+.face img {
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.backImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*
+ * Торец: четыре полоски по краям, повёрнутые поперёк карты. На скруглённых углах их нет —
+ * там полоска торчала бы за угол. В середине тёмный слой, как у настоящего картона карт.
+ */
+.edge {
+  position: absolute;
+  background: #d9d9dc;
+}
+
+.left,
+.right {
+  top: var(--r);
+  width: var(--t);
+  height: calc(var(--h) - 2 * var(--r));
+  background: linear-gradient(90deg, #e4e4e7, #3a3a40 38%, #3a3a40 62%, #e4e4e7);
+}
+
+.left {
+  left: calc(var(--t) / -2);
+  transform: rotateY(90deg);
+}
+
+.right {
+  left: calc(var(--w) - var(--t) / 2);
+  transform: rotateY(90deg);
+}
+
+.top,
+.bottom {
+  left: var(--r);
+  width: calc(var(--w) - 2 * var(--r));
+  height: var(--t);
+  background: linear-gradient(180deg, #e4e4e7, #3a3a40 38%, #3a3a40 62%, #e4e4e7);
+}
+
+.top {
+  top: calc(var(--t) / -2);
+  transform: rotateX(90deg);
+}
+
+.bottom {
+  top: calc(var(--h) - var(--t) / 2);
+  transform: rotateX(90deg);
+}
+
+/* Блик: пятно света там, куда карта отражает свет, плюс полоса, как у TiltCard */
+.sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at var(--mx, 35%) var(--my, 25%), rgba(255, 255, 255, 0.34), transparent 48%),
+    linear-gradient(115deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.16) 46%, rgba(255, 255, 255, 0) 62%);
+  mix-blend-mode: soft-light;
+}
+
+/* Голо: радужный перелив, который сдвигается вместе с поворотом */
+.holo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    rgba(255, 0, 132, 0.18),
+    rgba(255, 196, 0, 0.18),
+    rgba(0, 255, 170, 0.18),
+    rgba(0, 140, 255, 0.18),
+    rgba(190, 0, 255, 0.18)
+  );
+  background-size: 300% 300%;
+  background-position: var(--mx, 35%) var(--my, 25%);
+  mix-blend-mode: color-dodge;
+  opacity: 0.55;
+}
+
+/* Кнопки на тёмной подложке просмотра: цвета подложки, как у кнопки «Закрыть» */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.control {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(18, 18, 20, 0.7);
+  color: #f4f4f5;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.control:hover {
+  background: rgba(40, 40, 44, 0.85);
+}
+
+.control:focus-visible {
+  outline: 3px solid #f4f4f5;
+  outline-offset: 2px;
+}
+
+.hint {
+  max-width: 36ch;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(244, 244, 245, 0.72);
+  text-align: center;
+}
+
+.status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Ретро: прямые углы, без блика, перелива и мягкой тени — жёсткая тень, как у TiltCard */
+:global([data-theme='retro']) .face {
+  border-radius: 0;
+}
+
+:global([data-theme='retro']) .sheen {
+  display: none;
+}
+
+:global([data-theme='retro']) .zoom {
+  filter: drop-shadow(8px 8px 0 #0f380f);
+}
+
+:global([data-theme='retro']) .left,
+:global([data-theme='retro']) .right,
+:global([data-theme='retro']) .top,
+:global([data-theme='retro']) .bottom {
+  background: #0f380f;
+}
+
+:global([data-theme='retro']) .left,
+:global([data-theme='retro']) .right {
+  top: 0;
+  height: var(--h);
+}
+
+:global([data-theme='retro']) .top,
+:global([data-theme='retro']) .bottom {
+  left: 0;
+  width: var(--w);
+}
+
+:global([data-theme='retro']) .control {
+  border-radius: 0;
+  border-width: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoom {
+    transition: none;
+  }
+
+  .holo::after {
+    display: none;
+  }
+}

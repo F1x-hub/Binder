@@ -70,6 +70,34 @@
   text-align: center;
 }
 
+/* «Покрутить в 3D» под картой: вторичная кнопка во всю ширину колонки */
+.spin3d {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: -8px;
+  padding: 0 16px;
+  border-radius: var(--radius-control);
+  border: var(--border) solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.spin3d:hover {
+  background: var(--surface-2);
+}
+
+.spin3d:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Переключатель из двух-трёх кнопок: выбранная — цветом выбора темы */
 .segmented {
   display: grid;

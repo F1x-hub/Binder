@@ -43,7 +43,8 @@ import { prefersPhoto, setPhotoChoice } from '@/lib/my-photos';
 import { removeThumb } from '@/lib/thumbnails';
 import { useCardViews, type CardView } from '@/lib/useCardViews';
 import { Avatar } from '@/ui/Avatar';
-import { CardViewer } from '@/ui/CardViewer';
+import { Card3D } from '@/ui/Card3D';
+import { CardViewer, type ViewMode } from '@/ui/CardViewer';
 import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/EmptyState';
 import { BackIcon, MinusIcon, PlusIcon, ScanIcon } from '@/ui/Icons';
@@ -93,7 +94,7 @@ function numberLabel(view: CardView): string {
 const releaseFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 
 export function CardDetails({ view, uid }: { view: CardView; uid: string }) {
-  const [viewer, setViewer] = useState(false);
+  const [viewer, setViewer] = useState<ViewMode | null>(null);
   // Выбор из сканера или из прошлого захода: своё фото из Google Drive помнит, что показывать
   const [photo, setPhoto] = useState<'scan' | 'mine'>(() => (prefersPhoto(view.thumb) ? 'mine' : 'scan'));
   const text = useCardText(view);
@@ -135,8 +136,12 @@ export function CardDetails({ view, uid }: { view: CardView; uid: string }) {
 
       <div className={styles.layout}>
         <div className={styles.left}>
-          <TiltCard {...image} onOpen={() => setViewer(true)} />
-          <p className={styles.hint}>Наведи курсор, чтобы покрутить карту, нажми — чтобы рассмотреть</p>
+          <TiltCard {...image} onOpen={() => setViewer('flat')} />
+          <p className={styles.hint}>Наведи курсор, чтобы наклонить карту, нажми — чтобы рассмотреть</p>
+          <button type="button" className={styles.spin3d} onClick={() => setViewer('3d')}>
+            <CubeIcon />
+            Покрутить в 3D
+          </button>
           {canToggle && (
             <div role="group" aria-label="Какое фото показывать" className={styles.segmented}>
               <button type="button" aria-pressed={photo === 'scan'} onClick={() => pickPhoto('scan')}>
@@ -182,13 +187,29 @@ export function CardDetails({ view, uid }: { view: CardView; uid: string }) {
         </div>
       </div>
 
-      <CardViewer open={viewer} label={`Карта ${names.primary}`} onClose={() => setViewer(false)}>
-        <TiltCard {...image} className={styles.viewerCard} />
+      <CardViewer
+        open={viewer !== null}
+        label={`Карта ${names.primary}`}
+        onClose={() => setViewer(null)}
+        mode={viewer ?? 'flat'}
+        onModeChange={setViewer}
+      >
+        {viewer === '3d' ? <Card3D {...image} /> : <TiltCard {...image} className={styles.viewerCard} />}
         <p className={styles.viewerCaption}>
           {names.primary} · {numberLabel(view)}
         </p>
       </CardViewer>
     </>
+  );
+}
+
+/** Кубик для кнопки «Покрутить в 3D» */
+function CubeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z" />
+      <path d="M3.5 7 12 11.5 20.5 7M12 11.5v10" />
+    </svg>
   );
 }
 
@@ -471,7 +492,11 @@ function PricePanel({ view }: { view: CardView }) {
             ? 'История за год — TCGplayer через JustTCG, без грейда, Near Mint.'
             : view.lang === 'ja'
               ? 'Доллары — TCGplayer через JustTCG, евро — Cardmarket через TCGdex.'
-              : 'TCGplayer и Cardmarket через TCGdex.'}{' '}
+              : view.catalog === 'zh-cn'
+                ? 'Доллары — Cardmarket, а если его нет, последняя продажа на eBay, через PikaQian.'
+                : view.catalog === 'ko'
+                  ? 'Последняя сделка без грейда на корейском рынке через pokepolio, из вон в доллары по курсу ЕЦБ.'
+                  : 'TCGplayer и Cardmarket через TCGdex.'}{' '}
           Обновляются раз в сутки.
           {fromMarket && view.lang !== 'en' && view.catalog === 'en' ? ' Цены английской карты.' : ''}
         </p>
