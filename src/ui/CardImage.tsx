@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { LANGUAGE_LABELS, type CardLanguage } from '@/lib/languages';
 import { limitlessImage, type LimitlessRef } from '@/lib/limitless';
 import { usePrefersPhoto } from '@/lib/my-photos';
@@ -22,6 +22,8 @@ type Props = {
   /** Язык карты: у неанглийских — значок в углу, английские без значка (их в альбоме большинство) */
   lang?: CardLanguage;
   quality?: 'low' | 'high';
+  /** Что показать вместо таблички с именем, если скана нет ни в одной базе (недостающая карта в биндере) */
+  fallback?: ReactNode;
   className?: string;
 };
 
@@ -30,7 +32,7 @@ type Props = {
  * а если нет и его (карта друга, другой браузер) — табличка с именем и номером.
  * Если для карты выбрано «Моё фото» (src/lib/my-photos.ts), своё фото идёт первым.
  */
-export function CardImage({ image, limitless, thumb, name, number, lang, quality = 'low', className }: Props) {
+export function CardImage({ image, limitless, thumb, name, number, lang, quality = 'low', fallback, className }: Props) {
   const mine = usePrefersPhoto(thumb);
   const sources = [
     mine ? thumb : null,
@@ -39,6 +41,7 @@ export function CardImage({ image, limitless, thumb, name, number, lang, quality
   ].filter((source): source is string => Boolean(source));
   const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
   const src = sources.find((source) => !failed.has(source)) ?? null;
+  if (!src && !thumb && fallback !== undefined) return <>{fallback}</>;
   return (
     <div className={cx(styles.frame, className)}>
       {src ? (

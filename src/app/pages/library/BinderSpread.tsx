@@ -3,6 +3,8 @@ import { catalog } from '@/lib/catalog';
 import { setKey } from '@/lib/collection';
 import { CARD_FORMS, countLabel } from '@/lib/format';
 import { htmlLang, type CardLanguage, type TcgdexLanguage } from '@/lib/languages';
+import type { LimitlessRef } from '@/lib/limitless';
+import { limitlessChecklist, limitlessSetCards, outOfBaseSet, printedNumberId } from '@/lib/limitless-set';
 import {
   activeFilterCount,
   cardPockets,
@@ -18,13 +20,14 @@ import {
 } from '@/lib/library-filters';
 import { isPocketCard } from '@/lib/tcgdex';
 import type { CardView } from '@/lib/useCardViews';
+import { CardImage } from '@/ui/CardImage';
 import { cx } from '@/ui/cx';
 import { BackIcon, ForwardIcon } from '@/ui/Icons';
 import { AlbumCard } from './AlbumCard';
 import styles from './BinderSpread.module.css';
 import { NothingFound } from './NothingFound';
 
-const CATALOGS: readonly TcgdexLanguage[] = ['en', 'ja', 'zh-tw', 'id', 'th'];
+const CATALOGS: readonly TcgdexLanguage[] = ['en', 'ja', 'zh-tw', 'zh-cn', 'ko', 'id', 'th'];
 
 /** Сет каталога TCGdex из ключа группы альбома («en:sv03»); у карт вне базы («x:ja:MBG») списка нет. */
 function catalogSet(key: string | null): { lang: TcgdexLanguage; setId: string } | null {
@@ -35,16 +38,40 @@ function catalogSet(key: string | null): { lang: TcgdexLanguage; setId: string }
   return split > 0 && setId && CATALOGS.includes(lang) ? { lang, setId } : null;
 }
 
-/** Список карт сета из того же кэша, что у альбома (7 дней). */
+/** Где взять скан карты сета TCGdex в Limitless, если в TCGdex его нет (как у карт альбома в useCardViews). */
+function checklistLimitless(lang: TcgdexLanguage, setId: string, abbreviation: string | undefined, localId: string): LimitlessRef | null {
+  if (!localId) return null;
+  if (lang === 'ja') return { region: 'jp', set: setId, number: localId };
+  if (lang === 'en' && abbreviation) return { region: 'en', set: abbreviation, number: localId };
+  return null;
+}
+
+/**
+ * Список карт сета: у сетов TCGdex — из того же кэша, что у альбома (7 дней), у японских сетов
+ * вне TCGdex («x:ja:MBG») — из Limitless (src/lib/limitless-set.ts, 30 дней). null — списка нет.
+ */
 function useChecklist(key: string | null): ChecklistCard[] | null {
   const [state, setState] = useState<{ key: string; cards: ChecklistCard[] | null } | null>(null);
   useEffect(() => {
+    if (!key) return;
     const set = catalogSet(key);
-    if (!key || !set) return;
+    const outside = set ? null : outOfBaseSet(key);
+    if (!set && !outside) return;
     let active = true;
-    catalog
-      .set(set.setId, set.lang)
-      .then((detail) => detail.cards.filter((card) => !isPocketCard(card)))
+    const load: Promise<ChecklistCard[] | null> = set
+      ? catalog.set(set.setId, set.lang).then((detail) =>
+          detail.cards
+            .filter((card) => !isPocketCard(card))
+            .map((card) => ({
+              id: card.id,
+              localId: card.localId,
+              name: card.name,
+              ...(card.image ? { image: card.image } : {}),
+              limitless: checklistLimitless(set.lang, set.setId, detail.abbreviation?.official, card.localId),
+            })),
+        )
+      : limitlessSetCards(outside!).then((cards) => (cards ? limitlessChecklist(cards) : null));
+    load
       .catch(() => null)
       .then((cards) => {
         if (active) setState({ key, cards });
@@ -73,15 +100,21 @@ type Props = {
 /**
  * Разворот биндера: две страницы по девять карманов и корешок с кольцами посередине.
  * Если выбран один сет, сортировка по номеру и других фильтров нет, разворот повторяет
- * настоящий биндер сета: все карты по порядку, у недостающих — пустой карман с номером.
+ * настоящий биндер сета: все карты по порядку, недостающие — скан без цвета (нет скана — пустой
+ * карман с номером). Список сета — из TCGdex, у японских сетов вне TCGdex — из Limitless.
  * Иначе карманы заполняются найденными картами подряд. Листается кнопками и стрелками ← →.
  */
 export function BinderSpread({ cards, albumSize, filters, sort, setTitle, spread, onSpread, onReset, uid }: Props) {
   const titleId = useId();
   const setMode = filters.set !== null && sort === 'number' && activeFilterCount(filters, { ignoreSet: true }) === 0;
-  const checklistKey = setMode && catalogSet(filters.set) ? filters.set : null;
+  const outside = setMode ? outOfBaseSet(filters.set) : null;
+  const checklistKey = setMode && (catalogSet(filters.set) || outside) ? filters.set : null;
   const checklist = useChecklist(checklistKey);
-  const pockets = useMemo(() => (checklist ? checklistPockets(cards, checklist) : cardPockets(cards)), [cards, checklist]);
+  const pockets = useMemo(() => {
+    if (!checklist) return cardPockets(cards);
+    // Карты вне базы находят карман по напечатанному номеру, карты TCGdex — по ID
+    return outside ? checklistPockets(cards, checklist, printedNumberId) : checklistPockets(cards, checklist);
+  }, [cards, checklist, outside]);
   // Закладки сетов: только когда карты идут по сетам (сортировка по номеру) и сетов больше одного
   const setStarts = useMemo(() => (!checklist && sort === 'number' ? setStartsOf(pockets) : null), [pockets, checklist, sort]);
   const total = spreadCount(pockets.length);
@@ -99,7 +132,10 @@ export function BinderSpread({ cards, albumSize, filters, sort, setTitle, spread
   const countText = setTotal
     ? `${ownedInSet(cards, setTotal)} из ${setTotal} карт`
     : `${countLabel(cards.length, CARD_FORMS)}${filtered ? ` из ${albumSize}` : ''}`;
-  const missingLang = checklistKey ? catalogSet(checklistKey)?.lang : undefined;
+  // Язык подписи недостающей карты; у японского сета вне базы имя английское, если Limitless знает перевод
+  const missingLang: TcgdexLanguage | undefined = checklistKey
+    ? (catalogSet(checklistKey)?.lang ?? (outside ? 'ja' : undefined))
+    : undefined;
 
   const go = (next: number) => onSpread(Math.min(Math.max(0, next), total - 1));
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -230,14 +266,34 @@ function BinderPage({
           );
         }
         if (pocket.kind === 'missing') {
+          // Английское имя (перевод Limitless) — без lang, напечатанное японское — с ним
+          const lang = missingLang && missingLang !== 'en' && !/^[\x20-\x7e]+$/.test(pocket.name) ? missingLang : undefined;
+          const emptyPocket = (
+            <div className={styles.pocket} aria-hidden="true">
+              {pocket.number}
+            </div>
+          );
           return (
             <li key={pocket.key} className={styles.slot}>
-              <div className={styles.pocket} aria-hidden="true">
-                {pocket.number}
-              </div>
-              <div className={styles.missingName}>
-                <span lang={missingLang && missingLang !== 'en' ? htmlLang(missingLang as CardLanguage) : undefined}>
+              {/* Скан карты, которой нет в альбоме, — без цвета; нет скана — пустой карман с номером */}
+              {pocket.image || pocket.limitless ? (
+                <div className={styles.missingCover} aria-hidden="true">
+                  <CardImage
+                    image={pocket.image}
+                    limitless={pocket.limitless}
+                    name={pocket.name}
+                    fallback={emptyPocket}
+                  />
+                </div>
+              ) : (
+                emptyPocket
+              )}
+              <div className={styles.missingCaption}>
+                <span className={styles.missingName} title={pocket.name} lang={lang ? htmlLang(lang as CardLanguage) : undefined}>
                   {pocket.name}
+                </span>
+                <span className={styles.missingNumber} aria-hidden="true">
+                  № {pocket.number}
                 </span>
                 <span className={styles.srOnly}>, номер {pocket.number}, нет в альбоме</span>
               </div>
@@ -248,6 +304,8 @@ function BinderPage({
           <li key={pocket.key} className={styles.slot} aria-hidden="true">
             {setStarts && <span className={styles.setTab} />}
             <div className={styles.pocket} />
+            {/* Место под подпись, как у карты: ряды обеих страниц одной высоты */}
+            <div className={styles.missingCaption} />
           </li>
         );
       })}

@@ -139,7 +139,12 @@
   font-weight: 600;
 }
 
+/* Цена всегда в одну строку («—», если цены нет): подписи в ряду одной высоты */
 .price {
+  min-height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }

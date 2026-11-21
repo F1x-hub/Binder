@@ -154,16 +154,58 @@
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Карта сета, которой нет в альбоме: её скан без цвета и приглушённый, чтобы сразу читалось
+ * «этой карты у тебя нет». Нет скана — пустой карман с номером (CardImage fallback).
+ */
+.missingCover img {
+  filter: grayscale(1) brightness(0.8);
+  opacity: 0.45;
+}
+
+:global([data-theme='light']) .missingCover img,
+:global([data-theme='poke']) .missingCover img {
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
+/* В Ретро серый скан ложится на зелёный экран умножением и становится четырёхцветным зелёным */
+:global([data-theme='retro']) .missingCover img {
+  filter: grayscale(1) contrast(1.2);
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+}
+
+/*
+ * Подпись недостающей карты и место под подпись у пустого кармана — той же высоты, что подпись
+ * AlbumCard (имя в две строки и строка цены, 13/18 px): ряды обеих страниц разворота ровные.
+ * Те же размеры повторяет .skeletonCaption в Library.module.css.
+ */
+.missingCaption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  min-height: 56px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+}
+
 .missingName {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
+  min-height: 36px;
   overflow: hidden;
   overflow-wrap: anywhere;
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--muted);
+}
+
+/* На месте цены — номер карты в сете */
+.missingNumber {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /*

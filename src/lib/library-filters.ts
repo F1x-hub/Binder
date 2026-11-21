@@ -3,6 +3,7 @@ import { CONDITIONS, setKey, type Condition, type OwnedCard, type Variant } from
 import { rarityLabel } from '@/lib/format';
 import { CARD_LANGUAGES, LANGUAGE_LABELS, type CardLanguage } from '@/lib/languages';
 import { normalizeNumber } from '@/lib/matching';
+import type { LimitlessRef } from '@/lib/limitless';
 import type { CardPrice } from '@/lib/prices';
 
 /**
@@ -419,13 +420,16 @@ export const PAGES_PER_SPREAD = 2;
 
 export type Pocket<T> =
   | { kind: 'card'; key: string; card: T }
-  /** Карты сета, которой нет в альбоме: пустой карман с номером */
-  | { kind: 'missing'; key: string; number: string; name: string }
+  /** Карта сета, которой нет в альбоме: её скан без цвета, а нет скана — пустой карман с номером */
+  | { kind: 'missing'; key: string; number: string; name: string; image?: string; limitless?: LimitlessRef | null }
   /** Пустой карман в конце последней страницы */
   | { kind: 'blank'; key: string };
 
-/** Карта из списка сета TCGdex. */
-export type ChecklistCard = { id: string; localId: string; name: string };
+/**
+ * Карта из списка сета: TCGdex или, у сетов вне TCGdex, Limitless (src/lib/limitless-set.ts).
+ * image — скан TCGdex, limitless — где взять скан в Limitless; у недостающей карты он показывается без цвета.
+ */
+export type ChecklistCard = { id: string; localId: string; name: string; image?: string; limitless?: LimitlessRef | null };
 
 export function cardPockets<T extends Pick<AlbumCard, 'docId'>>(cards: readonly T[]): Pocket<T>[] {
   return cards.map((card) => ({ kind: 'card', key: card.docId, card }));
@@ -436,18 +440,31 @@ export function cardPockets<T extends Pick<AlbumCard, 'docId'>>(cards: readonly 
  * карман с номером. Копии на других языках (английская и французская) лежат рядом.
  * Карты альбома, которых в списке сета нет, — в конце.
  */
-export function checklistPockets<T extends AlbumCard>(cards: readonly T[], checklist: readonly ChecklistCard[]): Pocket<T>[] {
+export function checklistPockets<T extends AlbumCard>(
+  cards: readonly T[],
+  checklist: readonly ChecklistCard[],
+  /** По чему карта альбома находит своё место в списке: у сетов TCGdex — ID карты, у сетов вне базы — номер */
+  idOf: (card: T) => string | null = (card) => card.cardId,
+): Pocket<T>[] {
   const owned = new Map<string, T[]>();
   for (const card of [...cards].sort(albumOrder)) {
-    if (!card.cardId) continue;
-    owned.set(card.cardId, [...(owned.get(card.cardId) ?? []), card]);
+    const id = idOf(card);
+    if (!id) continue;
+    owned.set(id, [...(owned.get(id) ?? []), card]);
   }
   const placed = new Set<string>();
   const pockets: Pocket<T>[] = [];
   for (const item of checklist) {
     const copies = owned.get(item.id);
     if (!copies) {
-      pockets.push({ kind: 'missing', key: `missing:${item.id}`, number: item.localId, name: item.name });
+      pockets.push({
+        kind: 'missing',
+        key: `missing:${item.id}`,
+        number: item.localId,
+        name: item.name,
+        ...(item.image ? { image: item.image } : {}),
+        ...(item.limitless ? { limitless: item.limitless } : {}),
+      });
       continue;
     }
     for (const card of copies) {
