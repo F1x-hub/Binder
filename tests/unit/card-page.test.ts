@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { energy, factsFromLimitless, factsFromTcgdex, stageLabel, withTranslation } from '@/lib/card-facts';
-import { buildChart, historyMonths, monthsBetween, shortDate, type PricePoint } from '@/lib/price-history';
+import { buildChart, historyMonths, longDate, monthsBetween, nearestPoint, shortDate, type PricePoint } from '@/lib/price-history';
 import type { CardDetail } from '@/lib/tcgdex';
 
 /** Карточка TCGdex sv03-125, как её отдаёт API (сокращено). */
@@ -152,6 +152,21 @@ describe('история цены', () => {
     expect(chart.xLabels[0]).toBe('20 ноя');
     expect(chart.xLabels.at(-1)).toBe('10 дек');
     expect(chart.endTop).toBe(20);
+  });
+
+  it('точки графика для подсказки: координаты, день и цена; под курсором — ближайшая', () => {
+    const chart = buildChart(points, '1М', '2026-12-12')!;
+    expect(chart.points.map((point) => [point.day, point.value])).toEqual([
+      ['2026-11-20', 5],
+      ['2026-11-25', 5.5],
+      ['2026-12-10', 6],
+    ]);
+    expect(chart.points[0]).toMatchObject({ x: 0, y: 160 });
+    expect(chart.points.at(-1)).toMatchObject({ x: 600, y: 40 });
+    expect(nearestPoint(chart.points, 0)).toBe(0);
+    expect(nearestPoint(chart.points, 160)).toBe(1);
+    expect(nearestPoint(chart.points, 590)).toBe(2);
+    expect(longDate('2026-11-21')).toBe('21 ноября 2026');
   });
 
   it('точки за пределами периода не попадают, одной точки для графика мало', () => {

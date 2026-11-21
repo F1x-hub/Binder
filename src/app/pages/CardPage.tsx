@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { usePageTitle } from '@/app/usePageTitle';
 import { useAuth } from '@/lib/auth-state';
@@ -27,7 +27,17 @@ import { CARD_FORMS, countLabel, formatCardPrice, rarityLabel } from '@/lib/form
 import { LANGUAGE_LABELS, htmlLang } from '@/lib/languages';
 import { displayNames } from '@/lib/names';
 import { japaneseCardText } from '@/lib/limitless';
-import { PERIOD_MONTHS, buildChart, loadPriceHistory, shortDate, type ChartPeriod, type PricePoint } from '@/lib/price-history';
+import {
+  PERIOD_MONTHS,
+  buildChart,
+  loadPriceHistory,
+  longDate,
+  nearestPoint,
+  shortDate,
+  type Chart,
+  type ChartPeriod,
+  type PricePoint,
+} from '@/lib/price-history';
 import { utcDay } from '@/lib/prices';
 import { removeThumb } from '@/lib/thumbnails';
 import { useCardViews, type CardView } from '@/lib/useCardViews';
@@ -430,23 +440,7 @@ function PricePanel({ view }: { view: CardView }) {
                   </span>
                 ))}
               </div>
-              <div className={styles.plot}>
-                <svg
-                  role="img"
-                  aria-label={`График цены за ${period}: от ${money(chart.first, chart.currency)} до ${money(chart.last, chart.currency)}`}
-                  width="100%"
-                  height="200"
-                  viewBox="0 0 600 200"
-                  preserveAspectRatio="none"
-                >
-                  {[40, 100, 160].map((y) => (
-                    <line key={y} x1="0" y1={y} x2="600" y2={y} className={styles.grid} vectorEffect="non-scaling-stroke" />
-                  ))}
-                  <polygon points={chart.area} className={styles.area} />
-                  <polyline points={chart.line} className={styles.line} vectorEffect="non-scaling-stroke" />
-                </svg>
-                <span className={styles.marker} style={{ top: `calc(${chart.endTop}% - 6px)` }} aria-hidden="true" />
-              </div>
+              <ChartPlot key={period} chart={chart} period={period} money={money} />
             </div>
             <div className={styles.xAxis} aria-hidden="true">
               {chart.xLabels.map((label, index) => (
@@ -477,6 +471,88 @@ function PricePanel({ view }: { view: CardView }) {
 
       <GradedPanel view={view} market={market} />
     </>
+  );
+}
+
+type Money = (value: number, kind: 'usd' | 'eur') => string;
+
+/**
+ * Поле графика. Наведение мышью или пальцем показывает вертикальную линию, точку и подсказку
+ * с датой и ценой ближайшего дня. С клавиатуры это ползунок по дням: стрелки, Home и End.
+ */
+function ChartPlot({ chart, period, money }: { chart: Chart; period: ChartPeriod; money: Money }) {
+  const [active, setActive] = useState<number | null>(null);
+  const plotRef = useRef<HTMLDivElement>(null);
+  const { points } = chart;
+  const last = points.length - 1;
+  const point = active === null ? null : (points[active] ?? null);
+
+  const pick = (clientX: number) => {
+    const rect = plotRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return;
+    setActive(nearestPoint(points, ((clientX - rect.left) / rect.width) * 600));
+  };
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const current = active ?? last;
+    const next =
+      event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+        ? Math.max(0, current - 1)
+        : event.key === 'ArrowRight' || event.key === 'ArrowUp'
+          ? Math.min(last, current + 1)
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? last
+              : null;
+    if (next === null) {
+      if (event.key === 'Escape') setActive(null);
+      return;
+    }
+    event.preventDefault();
+    setActive(next);
+  };
+
+  const summary = `${longDate(points[0]!.day)} — ${longDate(points[last]!.day)}, от ${money(chart.first, chart.currency)} до ${money(chart.last, chart.currency)}`;
+
+  return (
+    <div
+      ref={plotRef}
+      className={styles.plot}
+      role="slider"
+      tabIndex={0}
+      aria-label={`История цены за ${period}`}
+      aria-valuemin={0}
+      aria-valuemax={last}
+      aria-valuenow={active ?? last}
+      aria-valuetext={point ? `${longDate(point.day)}: ${money(point.value, chart.currency)}` : summary}
+      onPointerMove={(event) => pick(event.clientX)}
+      onPointerDown={(event) => pick(event.clientX)}
+      onPointerLeave={(event) => event.pointerType === 'mouse' && setActive(null)}
+      onFocus={() => setActive((current) => current ?? last)}
+      onBlur={() => setActive(null)}
+      onKeyDown={onKeyDown}
+    >
+      <svg aria-hidden="true" width="100%" height="200" viewBox="0 0 600 200" preserveAspectRatio="none">
+        {[40, 100, 160].map((y) => (
+          <line key={y} x1="0" y1={y} x2="600" y2={y} className={styles.grid} vectorEffect="non-scaling-stroke" />
+        ))}
+        <polygon points={chart.area} className={styles.area} />
+        <polyline points={chart.line} className={styles.line} vectorEffect="non-scaling-stroke" />
+      </svg>
+      {point ? (
+        <>
+          <span className={styles.crosshair} style={{ left: `${point.x / 6}%` }} aria-hidden="true" />
+          <span className={styles.hoverDot} style={{ left: `${point.x / 6}%`, top: `${point.y / 2}%` }} aria-hidden="true" />
+          <span className={cx(styles.tooltip, point.x > 400 && styles.tooltipLeft)} style={{ left: `${point.x / 6}%` }} aria-hidden="true">
+            <span className={styles.tooltipDate}>{longDate(point.day)}</span>
+            <span className={styles.tooltipValue}>{money(point.value, chart.currency)}</span>
+          </span>
+        </>
+      ) : (
+        <span className={styles.marker} style={{ top: `calc(${chart.endTop}% - 6px)` }} aria-hidden="true" />
+      )}
+    </div>
   );
 }
 

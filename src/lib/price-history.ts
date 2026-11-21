@@ -90,8 +90,13 @@ export type ChartPeriod = '1М' | '6М' | '1Г';
 export const PERIOD_DAYS: Record<ChartPeriod, number> = { '1М': 30, '6М': 182, '1Г': 365 };
 export const PERIOD_MONTHS: Record<ChartPeriod, number> = { '1М': 2, '6М': 7, '1Г': 13 };
 
+/** Точка графика: координаты в 600×200, день и цена — для подсказки при наведении. */
+export type ChartPoint = { x: number; y: number; day: string; value: number };
+
 export type Chart = {
   currency: 'usd' | 'eur';
+  /** Точки по порядку дней, слева направо */
+  points: ChartPoint[];
   /** Точки линии в координатах 600×200 */
   line: string;
   area: string;
@@ -105,7 +110,23 @@ export type Chart = {
   last: number;
 };
 
+/** Номер точки, ближайшей к x (координата 0–600): под курсором на графике. */
+export function nearestPoint(points: ChartPoint[], x: number): number {
+  let best = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    if (Math.abs(points[index]!.x - x) < Math.abs(points[best]!.x - x)) best = index;
+  }
+  return best;
+}
+
 const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+const MONTHS_LONG = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+
+/** «2026-11-21» → «21 ноября 2026»: дата в подсказке графика. */
+export function longDate(day: string): string {
+  const [year, month, date] = day.split('-').map(Number) as [number, number, number];
+  return `${date} ${MONTHS_LONG[month - 1]} ${year}`;
+}
 
 /** «2026-11-21» → «21 ноя». */
 export function shortDate(day: string): string {
@@ -155,6 +176,7 @@ export function buildChart(points: PricePoint[], period: ChartPeriod, today = ut
   const last = series[series.length - 1]!.value;
   return {
     currency,
+    points: series.map((entry, index) => ({ x: xy[index]![0], y: xy[index]![1], day: entry.day, value: entry.value })),
     line,
     area: `${line} 600,200 0,200`,
     endTop: xy[xy.length - 1]![1] / 2,
