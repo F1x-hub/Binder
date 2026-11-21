@@ -1,6 +1,6 @@
 import { cached } from '@/lib/kv-cache';
 import { catalogFor, type TcgdexLanguage } from '@/lib/languages';
-import { findJapaneseCard, searchJapaneseCards, type LimitlessCard } from '@/lib/limitless';
+import { englishNameOf, findJapaneseCard, searchJapaneseCards, type LimitlessCard } from '@/lib/limitless';
 import {
   NAME_FLOOR,
   READY_SCORE,
@@ -55,8 +55,18 @@ export const catalog = {
     cached(cacheKey(lang, 'find', `${name.toLowerCase()}:${localId}`), 7 * DAY, () => tcgdexApi.search(name, localId, lang)),
 };
 
+/**
+ * Карта сверяется с каталогом чужого языка: корейская — с японским. Имён на её языке там нет,
+ * поэтому искать можно только по коду сета и номеру, а имя сверяется по-английски.
+ */
+export function isForeignCatalog(detected: Pick<DetectedCard, 'language'>, lang: TcgdexLanguage): boolean {
+  return lang !== 'en' && detected.language !== lang;
+}
+
 /** Какие имена искать: в английском каталоге — английское имя, в своём — напечатанное. */
 function namesFor(detected: DetectedCard, lang: TcgdexLanguage): string[] {
+  // Корейского имени в японском каталоге нет, а английские имена японский поиск TCGdex не знает
+  if (isForeignCatalog(detected, lang)) return [];
   const base = searchName(lang === 'en' ? (detected.englishName ?? detected.name) : detected.name);
   return [...new Set([base, lastWord(base)].filter((name) => name.length >= 2))];
 }
@@ -100,7 +110,9 @@ async function searchByTotal(detected: DetectedCard, lang: TcgdexLanguage): Prom
   for (const set of sets.slice(0, 6)) {
     const detail = await catalog.set(set.id, lang).catch(() => null);
     const card = detail?.cards.find((item) => sameNumber(item.localId, detected.number));
-    if (card && nameScore(detected, { name: card.name, lang }) >= NAME_FLOOR) found.push(card);
+    if (!card) continue;
+    const englishName = isForeignCatalog(detected, lang) ? await englishNameOf(set.id, card.localId).catch(() => null) : null;
+    if (nameScore(detected, { name: card.name, lang, englishName }) >= NAME_FLOOR) found.push(card);
   }
   return found;
 }
@@ -157,8 +169,11 @@ async function searchLimitless(detected: DetectedCard): Promise<Candidate[]> {
 /**
  * Кандидаты для одной прочитанной карты, лучшие первыми. Ищем в каталоге языка карты,
  * японские карты, которых там нет или которые нашлись неуверенно, — ещё и в Limitless.
- * Если каталога для языка нет (китайские для КНР, корейские), кандидатов нет:
- * такую карту добавляют как есть. Если база недоступна, ошибка уходит наверх.
+ * Корейская карта ищется в японском каталоге по коду сета и номеру (корейские издания
+ * повторяют японские), английское имя кандидата для сверки берётся из перевода Limitless.
+ * В одном Limitless корейская карта не ищется: в альбом пошло бы японское имя как напечатанное.
+ * Если каталога для языка нет (китайские для КНР), кандидатов нет: такую карту добавляют
+ * как есть. Если база недоступна, ошибка уходит наверх.
  */
 export async function findCandidates(detected: DetectedCard): Promise<Candidate[]> {
   const { tcgdex: lang, exact } = catalogFor(detected.language);
@@ -169,10 +184,15 @@ export async function findCandidates(detected: DetectedCard): Promise<Candidate[
   let briefs = [...new Map([...byCode, ...byName].map((card) => [card.id, card])).values()];
   if (briefs.length === 0) briefs = await searchByTotal(detected, lang);
 
+  const foreign = isForeignCatalog(detected, lang);
   const candidates: Candidate[] = await Promise.all(
     briefs.slice(0, 8).map(async (brief) => {
       const setId = setIdOf(brief);
-      const set = await catalog.set(setId, lang).catch(() => null);
+      const [set, englishName] = await Promise.all([
+        catalog.set(setId, lang).catch(() => null),
+        // Без английского имени корейскую карту не с чем сверить: имя в каталоге японское
+        foreign ? englishNameOf(setId, brief.localId).catch(() => null) : null,
+      ]);
       const base = {
         cardId: brief.id,
         setId,
@@ -186,6 +206,7 @@ export async function findCandidates(detected: DetectedCard): Promise<Candidate[
         lang,
         approximate: !exact,
         source: 'tcgdex' as const,
+        ...(englishName ? { englishName } : {}),
       };
       return { ...base, score: scoreCandidate(detected, base) };
     }),
@@ -194,7 +215,7 @@ export async function findCandidates(detected: DetectedCard): Promise<Candidate[
     list.filter((candidate) => (nameVerdict(detected, candidate) ?? 1) >= NAME_FLOOR),
   );
   const best = Math.max(0, ...candidates.map((candidate) => candidate.score));
-  if (lang === 'ja' && best < READY_SCORE) {
+  if (lang === 'ja' && !foreign && best < READY_SCORE) {
     for (const found of await searchLimitless(detected)) {
       // Та же карта есть в TCGdex (там цена): Limitless только подтверждает её имя, например английское
       const twin = candidates.find(

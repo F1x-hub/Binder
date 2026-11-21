@@ -22,9 +22,12 @@ describe('каталог для языка карты', () => {
     }
   });
 
-  it('китайских для КНР и корейских карт в TCGdex нет', () => {
-    expect(catalogFor('zh-cn').tcgdex).toBeNull();
-    expect(catalogFor('ko').tcgdex).toBeNull();
+  it('китайские для КНР не привязаны ни к одному каталогу: их сеты свои', () => {
+    expect(catalogFor('zh-cn')).toEqual({ tcgdex: null, exact: false });
+  });
+
+  it('корейская карта — похожая из японского каталога: те же сеты и номера, другая печать', () => {
+    expect(catalogFor('ko')).toEqual({ tcgdex: 'ja', exact: false });
   });
 
   it('неизвестный язык — только подсказки из английской базы', () => {
