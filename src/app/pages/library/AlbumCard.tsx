@@ -61,7 +61,12 @@ export function AlbumCard({ card, uid, className }: { card: CardView; uid: strin
         {uid && <RemoveButton uid={uid} card={card} name={names.primary} className={styles.cornerRemove} />}
       </div>
       <figcaption className={styles.caption}>
-        <span className={styles.cardName} title={names.secondary ?? undefined} lang={nameLang(card)}>
+        {/* Подсказка: полное имя (в две строки влезает не всякое) и напечатанное */}
+        <span
+          className={styles.cardName}
+          title={names.secondary ? `${names.primary} · ${names.secondary}` : names.primary}
+          lang={nameLang(card)}
+        >
           {names.primary}
         </span>
         <span className={styles.price}>{formatCardPrice(card.price)}</span>

@@ -117,22 +117,29 @@
 
 .caption {
   display: flex;
-  justify-content: space-between;
-  gap: 6px;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
   font-size: 13px;
+  line-height: 18px;
 }
 
+/*
+ * Имя — до двух строк, место под вторую строку держится всегда: цены в ряду стоят на одной
+ * высоте. Не влезло и в две строки — полное имя во всплывающей подсказке.
+ */
 .cardName {
-  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  min-height: 36px;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   font-weight: 600;
 }
 
 .price {
-  flex-shrink: 0;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }

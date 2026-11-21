@@ -155,11 +155,45 @@
 }
 
 .missingName {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+}
+
+/*
+ * Закладка сета над картой, как разделитель в настоящем биндере: у первой карты сета —
+ * имя сета с чертой сверху, у первой карты страницы, если сет продолжается, — бледнее.
+ * В остальных карманах строка пустая той же высоты, чтобы карты в ряду стояли ровно.
+ */
+.setTab {
+  display: block;
+  height: 22px;
+  box-sizing: border-box;
+  padding-top: 5px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 13px;
+  border-top: 2px solid transparent;
+  font-size: 12px;
+  line-height: 15px;
   color: var(--muted);
+}
+
+.setStart {
+  border-top-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Между закладкой и картой зазор меньше, чем между картой и подписью */
+.setTab + * {
+  margin-top: -4px;
 }
 
 /* Перелистывание: новая страница чуть выезжает со стороны листания */

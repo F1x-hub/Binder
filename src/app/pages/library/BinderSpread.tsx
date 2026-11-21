@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { catalog } from '@/lib/catalog';
+import { setKey } from '@/lib/collection';
 import { CARD_FORMS, countLabel } from '@/lib/format';
 import { htmlLang, type CardLanguage, type TcgdexLanguage } from '@/lib/languages';
 import {
@@ -17,6 +18,7 @@ import {
 } from '@/lib/library-filters';
 import { isPocketCard } from '@/lib/tcgdex';
 import type { CardView } from '@/lib/useCardViews';
+import { cx } from '@/ui/cx';
 import { BackIcon, ForwardIcon } from '@/ui/Icons';
 import { AlbumCard } from './AlbumCard';
 import styles from './BinderSpread.module.css';
@@ -80,6 +82,8 @@ export function BinderSpread({ cards, albumSize, filters, sort, setTitle, spread
   const checklistKey = setMode && catalogSet(filters.set) ? filters.set : null;
   const checklist = useChecklist(checklistKey);
   const pockets = useMemo(() => (checklist ? checklistPockets(cards, checklist) : cardPockets(cards)), [cards, checklist]);
+  // Закладки сетов: только когда карты идут по сетам (сортировка по номеру) и сетов больше одного
+  const setStarts = useMemo(() => (!checklist && sort === 'number' ? setStartsOf(pockets) : null), [pockets, checklist, sort]);
   const total = spreadCount(pockets.length);
   const index = Math.min(Math.max(0, spread), total - 1);
   const current = spreadAt(pockets, index);
@@ -149,7 +153,13 @@ export function BinderSpread({ cards, albumSize, filters, sort, setTitle, spread
       ) : (
         <div className={styles.spreadWrap}>
           <div key={index} className={styles.spread} data-direction={direction}>
-            <BinderPage pockets={current.pages[0]!} page={current.first} uid={uid} missingLang={missingLang} />
+            <BinderPage
+              pockets={current.pages[0]!}
+              page={current.first}
+              uid={uid}
+              missingLang={missingLang}
+              setStarts={setStarts}
+            />
             <div className={styles.spine} aria-hidden="true">
               <span className={styles.ring} />
               <span className={styles.ring} />
@@ -161,6 +171,7 @@ export function BinderSpread({ cards, albumSize, filters, sort, setTitle, spread
               empty={current.first === current.last}
               uid={uid}
               missingLang={missingLang}
+              setStarts={setStarts}
             />
           </div>
         </div>
@@ -169,25 +180,51 @@ export function BinderSpread({ cards, albumSize, filters, sort, setTitle, spread
   );
 }
 
+/**
+ * Карты, с которых начинается новый сет: у них в кармане закладка с именем сета.
+ * null — в альбоме один сет, граница не нужна.
+ */
+function setStartsOf(pockets: readonly Pocket<CardView>[]): ReadonlySet<string> | null {
+  const starts = new Set<string>();
+  let previous: string | null = null;
+  for (const pocket of pockets) {
+    if (pocket.kind !== 'card') continue;
+    const key = setKey(pocket.card);
+    if (key !== previous) starts.add(pocket.key);
+    previous = key;
+  }
+  return starts.size > 1 ? starts : null;
+}
+
 function BinderPage({
   pockets,
   page,
   empty = false,
   uid,
   missingLang,
+  setStarts,
 }: {
   pockets: Pocket<CardView>[];
   page: number;
   empty?: boolean;
   uid: string | null;
   missingLang: TcgdexLanguage | undefined;
+  setStarts: ReadonlySet<string> | null;
 }) {
   return (
     <ul className={styles.page} aria-label={empty ? 'Пустая страница' : `Страница ${page}`}>
-      {pockets.map((pocket) => {
+      {pockets.map((pocket, slot) => {
         if (pocket.kind === 'card') {
+          // Закладка: начало сета — с чертой, продолжение сета в начале страницы — бледнее
+          const starts = setStarts?.has(pocket.key) ?? false;
+          const tab = setStarts && (starts || slot === 0) ? pocket.card.setName : null;
           return (
             <li key={pocket.key} className={styles.slot}>
+              {setStarts && (
+                <span className={cx(styles.setTab, starts && styles.setStart)} title={tab ?? undefined}>
+                  {tab}
+                </span>
+              )}
               <AlbumCard card={pocket.card} uid={uid} />
             </li>
           );
@@ -209,6 +246,7 @@ function BinderPage({
         }
         return (
           <li key={pocket.key} className={styles.slot} aria-hidden="true">
+            {setStarts && <span className={styles.setTab} />}
             <div className={styles.pocket} />
           </li>
         );

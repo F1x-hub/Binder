@@ -134,11 +134,21 @@
   min-width: 0;
 }
 
+/* В развороте над картой строка закладки сета (BinderSpread .setTab: 22 px минус 4 px зазора) */
+.skeletonPage .skeletonSlot {
+  padding-top: 18px;
+}
+
+/* Подпись AlbumCard: имя в две строки (место держится всегда) и цена под ним */
 .skeletonCaption {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 6px;
+  gap: 2px;
+  min-height: 56px;
   font-size: 13px;
+  line-height: 18px;
 }
 
 .skeletonSpine {
@@ -234,9 +244,16 @@
 .skeletonSide {
   flex: 1 1 300px;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  align-items: start;
   gap: 20px;
+}
+
+@media (width < 1280px) {
+  .skeletonSide {
+    flex-basis: 100%;
+  }
 }
 
 .skeletonSidePanel {
