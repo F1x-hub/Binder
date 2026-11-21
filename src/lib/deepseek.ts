@@ -59,7 +59,7 @@ Rules:
 - englishName: the official English name of the card. If the card is in English, repeat name.
 - number: the collector number before the slash, exactly as printed, keeping leading zeros and letters ("057", "TG05").
 - total: the number after the slash exactly as printed, or null if there is no slash.
-- setCode: the set code printed in small letters near the bottom-left corner, next to the regulation mark letter or the number, copied exactly ("OBF", "SV2a", "M2a", "MBG"). If you cannot read it clearly, return null. Never guess it from the Pokémon or from the set you think the card belongs to.
+- setCode: the set code printed in small letters near the bottom-left corner, next to the regulation mark letter or the number, copied exactly ("OBF", "SV2a", "M2a", "MBG", "CSV1C"). If you cannot read it clearly, return null. Never guess it from the Pokémon or from the set you think the card belongs to.
 - language: the language the card text is printed in: "en", "fr", "de", "it", "es", "pt", "ru", "ja", "zh-tw" (traditional Chinese characters), "zh-cn" (simplified Chinese characters), "ko", "id", "th", or "other". Judge by the printed text, not by the Pokémon.
 - holo: true for holographic or reverse holo cards, false for regular ones, null if unsure.
 - box: where the card is in the photo, as [left, top, right, bottom] in thousandths of the photo width and height, from 0 to 1000.

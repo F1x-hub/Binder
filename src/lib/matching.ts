@@ -37,8 +37,11 @@ export type Candidate = {
   lang: TcgdexLanguage;
   /** Не та же карта, а похожая: язык карты не определён, и это подсказка из английской базы */
   approximate: boolean;
-  /** Откуда карта: TCGdex или Limitless TCG (японские карты, которых нет в TCGdex) */
-  source: 'tcgdex' | 'limitless';
+  /**
+   * Откуда карта: каталог (TCGdex или китайский для КНР), Limitless TCG (японские карты, которых
+   * нет в TCGdex) или официальный сайт Pokémon Asia (тайваньские карты, которых нет в TCGdex)
+   */
+  source: 'tcgdex' | 'limitless' | 'asia';
   /** Английское имя японской карты из Limitless */
   englishName?: string | null;
   score: number;

@@ -1,3 +1,6 @@
+import { findTwCard, searchTwCandidates } from '@/lib/asia-tw';
+import { cnCatalog } from '@/lib/cn-catalog';
+import { koCatalog, type KoHit } from '@/lib/ko-catalog';
 import { cached } from '@/lib/kv-cache';
 import { catalogFor, type TcgdexLanguage } from '@/lib/languages';
 import { englishNameOf, findJapaneseCard, searchJapaneseCards, type LimitlessCard } from '@/lib/limitless';
@@ -42,22 +45,47 @@ export function cardCacheKey(id: string, lang: TcgdexLanguage): string {
 /**
  * Справочник карт поверх TCGdex с кэшем в IndexedDB. В Firestore справочник не храним:
  * это экономит десятки тысяч записей при заливке и чтения при каждом скане.
+ * Китайский каталог для КНР (zh-cn) не из TCGdex: он целиком лежит в IndexedDB
+ * (src/lib/cn-catalog.ts), поэтому отдельного кэша на сет и карту ему не нужно.
  */
 export const catalog = {
   sets: (lang: TcgdexLanguage = 'en'): Promise<SetBrief[]> =>
-    cached(lang === 'en' ? 'tcgdex:sets' : `tcgdex:${lang}:sets`, 7 * DAY, () => tcgdexApi.sets(lang)),
+    lang === 'zh-cn'
+      ? cnCatalog.sets()
+      : lang === 'ko'
+        ? koCatalog.sets()
+        : cached(lang === 'en' ? 'tcgdex:sets' : `tcgdex:${lang}:sets`, 7 * DAY, () => tcgdexApi.sets(lang)),
   set: (id: string, lang: TcgdexLanguage = 'en'): Promise<SetDetail> =>
-    cached(cacheKey(lang, 'set', id), 7 * DAY, () => tcgdexApi.set(id, lang)),
+    lang === 'zh-cn'
+      ? cnCatalog.set(id)
+      : lang === 'ko'
+        ? koCatalog.set(id)
+        : cached(cacheKey(lang, 'set', id), 7 * DAY, () => tcgdexApi.set(id, lang)),
   card: (id: string, lang: TcgdexLanguage = 'en'): Promise<CardDetail> =>
-    cached(cardCacheKey(id, lang), 30 * DAY, () => tcgdexApi.card(id, lang)),
-  // Ключ «find» новый: старый «search» хранил ответы нестрогого поиска по номеру
+    lang === 'zh-cn'
+      ? cnCatalog.card(id)
+      : lang === 'ko'
+        ? koCatalog.card(id)
+        : cached(cardCacheKey(id, lang), 30 * DAY, () => tcgdexApi.card(id, lang)),
+  // Ключ «find» новый: старый «search» хранил ответы нестрогого поиска по номеру.
+  // В корейском каталоге поиска по имени нет: у выгрузок нет общего списка карт (см. koCandidates)
   search: (name: string, localId: string, lang: TcgdexLanguage = 'en'): Promise<CardBrief[]> =>
-    cached(cacheKey(lang, 'find', `${name.toLowerCase()}:${localId}`), 7 * DAY, () => tcgdexApi.search(name, localId, lang)),
+    lang === 'zh-cn'
+      ? cnCatalog.search(name, localId)
+      : lang === 'ko'
+        ? Promise.resolve([])
+        : cached(cacheKey(lang, 'find', `${name.toLowerCase()}:${localId}`), 7 * DAY, () => tcgdexApi.search(name, localId, lang)),
 };
 
+/** Сет карты: у китайских карт он указан явно (из ID с «.{ID в базе}» его не вывести), у TCGdex — из ID. */
+function setOf(card: CardBrief): string {
+  return (card as CardBrief & { setId?: string }).setId ?? setIdOf(card);
+}
+
 /**
- * Карта сверяется с каталогом чужого языка: корейская — с японским. Имён на её языке там нет,
- * поэтому искать можно только по коду сета и номеру, а имя сверяется по-английски.
+ * Карта сверяется с каталогом чужого языка: корейская — с японским, когда ищется её японская
+ * пара (koCandidates). Имён на её языке там нет, поэтому искать можно только по коду сета
+ * и номеру, а имя сверяется по-английски.
  */
 export function isForeignCatalog(detected: Pick<DetectedCard, 'language'>, lang: TcgdexLanguage): boolean {
   return lang !== 'en' && detected.language !== lang;
@@ -105,7 +133,7 @@ async function searchBySetCode(detected: DetectedCard, lang: TcgdexLanguage): Pr
 async function searchByTotal(detected: DetectedCard, lang: TcgdexLanguage): Promise<CardBrief[]> {
   if (!detected.total || !/^\d+$/.test(detected.total.trim())) return [];
   const total = Number(normalizeNumber(detected.total));
-  const sets = (await catalog.sets(lang)).filter((set) => set.cardCount.official === total && !isPocketId(set.id));
+  const sets = (await catalog.sets(lang)).filter((set) => set.cardCount.official === total && (lang === 'zh-cn' || !isPocketId(set.id)));
   const found: CardBrief[] = [];
   for (const set of sets.slice(0, 6)) {
     const detail = await catalog.set(set.id, lang).catch(() => null);
@@ -167,17 +195,63 @@ async function searchLimitless(detected: DetectedCard): Promise<Candidate[]> {
 }
 
 /**
+ * Корейская карта ищется в корейском каталоге (src/lib/ko-catalog.ts) по коду сета и номеру:
+ * общего списка карт у выгрузок нет, поиска по имени тоже. Если код не прочитан или такого
+ * сета нет, японская пара ищется по числу карт после дроби и номеру (имя сверяется по-английски,
+ * через перевод Limitless), и корейская карта берётся под её кодом и номером: корейские сеты
+ * повторяют японские. Чужая карта под тем же номером отбрасывается по корейскому имени.
+ * Если корейской печати нет ни в одной выгрузке, кандидатов нет: карту добавляют как есть.
+ */
+async function koCandidates(detected: DetectedCard): Promise<Candidate[]> {
+  const hits: KoHit[] = [];
+  if (detected.setCode?.trim()) {
+    const hit = await koCatalog.find(detected.setCode, detected.number);
+    if (hit) hits.push(hit);
+  }
+  if (hits.length === 0) {
+    for (const twin of await searchByTotal(detected, 'ja')) {
+      const hit = await koCatalog.find(setOf(twin), twin.localId).catch(() => null);
+      if (hit && !hits.some((item) => item.card.id === hit.card.id)) hits.push(hit);
+    }
+  }
+  const candidates = await Promise.all(
+    hits.slice(0, 6).map(async ({ card, setName, official, releaseDate }) => {
+      const englishName = await koCatalog.englishName(card.id).catch(() => null);
+      const base = {
+        cardId: card.id,
+        setId: card.setId,
+        name: card.name,
+        localId: card.localId,
+        image: card.image,
+        setName,
+        printedTotal: official || null,
+        setCode: null,
+        releaseDate,
+        lang: 'ko' as const,
+        approximate: false,
+        source: 'tcgdex' as const,
+        ...(englishName ? { englishName } : {}),
+      };
+      return { ...base, score: scoreCandidate(detected, base) };
+    }),
+  );
+  return candidates
+    .filter((candidate) => (nameVerdict(detected, candidate) ?? 1) >= NAME_FLOOR)
+    .sort((a, b) => b.score - a.score);
+}
+
+/**
  * Кандидаты для одной прочитанной карты, лучшие первыми. Ищем в каталоге языка карты,
  * японские карты, которых там нет или которые нашлись неуверенно, — ещё и в Limitless.
- * Корейская карта ищется в японском каталоге по коду сета и номеру (корейские издания
- * повторяют японские), английское имя кандидата для сверки берётся из перевода Limitless.
- * В одном Limitless корейская карта не ищется: в альбом пошло бы японское имя как напечатанное.
- * Если каталога для языка нет (китайские для КНР), кандидатов нет: такую карту добавляют
- * как есть. Если база недоступна, ошибка уходит наверх.
+ * Корейская карта ищется в корейском каталоге (koCandidates).
+ * Китайская карта для КНР ищется в своём каталоге (src/lib/cn-catalog.ts) так же, по коду
+ * сета, имени и номеру; английское имя для показа — из PikaQian. Если каталога для языка
+ * нет, кандидатов нет: такую карту добавляют как есть. Если база недоступна, ошибка уходит наверх.
  */
 export async function findCandidates(detected: DetectedCard): Promise<Candidate[]> {
   const { tcgdex: lang, exact } = catalogFor(detected.language);
   if (!lang) return [];
+  if (lang === 'ko') return koCandidates(detected);
 
   const byCode = await searchBySetCode(detected, lang);
   const byName = await searchByName(detected, lang);
@@ -187,11 +261,16 @@ export async function findCandidates(detected: DetectedCard): Promise<Candidate[
   const foreign = isForeignCatalog(detected, lang);
   const candidates: Candidate[] = await Promise.all(
     briefs.slice(0, 8).map(async (brief) => {
-      const setId = setIdOf(brief);
+      const setId = setOf(brief);
       const [set, englishName] = await Promise.all([
         catalog.set(setId, lang).catch(() => null),
-        // Без английского имени корейскую карту не с чем сверить: имя в каталоге японское
-        foreign ? englishNameOf(setId, brief.localId).catch(() => null) : null,
+        // Без английского имени корейскую карту не с чем сверить: имя в каталоге японское.
+        // У китайских карт английское имя только для показа: сверяет напечатанное
+        foreign
+          ? englishNameOf(setId, brief.localId).catch(() => null)
+          : lang === 'zh-cn'
+            ? cnCatalog.englishName(brief.id).catch(() => null)
+            : null,
       ]);
       const base = {
         cardId: brief.id,
@@ -225,5 +304,29 @@ export async function findCandidates(detected: DetectedCard): Promise<Candidate[
       else candidates.push(found);
     }
   }
-  return candidates.sort((a, b) => b.score - a.score);
+  // Тайваньская карта, которой нет в TCGdex (много пустых сетов) или которая нашлась неуверенно, —
+  // на официальном сайте Pokémon Asia. Если та же карта есть в TCGdex, сайт только подтверждает
+  // её имя и даёт скан, которого у TCGdex часто нет
+  if (lang === 'zh-tw' && best < READY_SCORE) {
+    for (const found of await searchTwCandidates(detected).catch(() => [])) {
+      const twin = candidates.find(
+        (candidate) =>
+          candidate.source === 'tcgdex' &&
+          candidate.setId.toUpperCase() === found.setId.toUpperCase() &&
+          sameNumber(candidate.localId, found.localId),
+      );
+      if (twin) {
+        twin.score = Math.max(twin.score, found.score);
+        twin.image ??= found.image;
+      } else candidates.push(found);
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  // Узнанная тайваньская карта TCGdex без скана (так у большинства): скан берётся с сайта
+  const top = candidates[0];
+  if (lang === 'zh-tw' && top && !top.image && top.source === 'tcgdex') {
+    const twin = await findTwCard({ name: top.name, number: top.localId, setCode: top.setId }).catch(() => null);
+    if (twin) top.image = twin.image;
+  }
+  return candidates;
 }

@@ -204,6 +204,41 @@ describe('браузер при ценах только для чтения', ()
   });
 });
 
+/** Корейский каталог (выгрузка type-null на GitHub), страницы pokepolio и курс вона. */
+function koreanRoute(url: URL): Response | undefined {
+  if (url.host === 'api.github.com' && url.pathname === '/repos/type-null/PTCG-database/contents/data_ko') {
+    return json([{ name: 'SV2a', type: 'dir' }]);
+  }
+  if (url.host === 'api.github.com' && url.pathname === '/repos/ce-dric/pokecard-kr/contents/src/data/sets') return json([]);
+  if (url.host === 'raw.githubusercontent.com' && url.pathname === '/type-null/PTCG-database/main/data_ko/SV2a/094.json') {
+    return json({
+      name: '팬텀',
+      img: 'https://cards.image.pokemonkorea.co.kr/data/wmimages/SV/SV2a/SV2a_094.png',
+      card_type: 'Pokémon',
+      set_name: 'SV2a',
+      set_full_name: '스칼렛&바이올렛 강화 확장팩 「포켓몬 카드 151」',
+      number: '094',
+      set_total: '165',
+      rarity: 'R',
+    });
+  }
+  if (url.host === 'api.frankfurter.dev') return json({ base: 'KRW', rates: { USD: 0.0007 } });
+  if (url.host === 'www.pokepolio.com' && url.pathname === '/cards-list') {
+    return new Response(
+      '<section class="pack-section"><a href="/sets/11111111-1111-1111-1111-111111111111"><img alt="151"></a>' +
+        '<img src="/api/card-image?src=https%3A%2F%2Fcards.image.pokemonkorea.co.kr%2Fdata%2Fwmimages%2FSV%2FSV2a%2FSV2a_201.png"></section>' +
+        '<div class="pagination"><span>1 / 1</span></div>',
+    );
+  }
+  if (url.host === 'www.pokepolio.com' && url.pathname === '/sets/11111111-1111-1111-1111-111111111111') {
+    return new Response(
+      '<a class="card-grid-item" href="/cards/aaaaaaaa-0000-0000-0000-000000000001"><strong>팬텀</strong><span>094/165 · R</span>' +
+        '<em class="card-grid-price">3,000원</em><small class="card-grid-source">Raw · 번개장터</small></a>',
+    );
+  }
+  return undefined;
+}
+
 describe('ежедневная задача цен', () => {
   async function seedClub() {
     await seedMember('alice');
@@ -219,7 +254,7 @@ describe('ежедневная задача цен', () => {
     });
     await seed('members/alice/cards/sv03-125', card('sv03', { lang: 'en', variant: 'holo' }));
     await seed('members/bob/cards/sv03-125', card('sv03'));
-    // Французская печать — та же карта английского каталога, корейская — только похожая, без цены
+    // Французская печать — та же карта английского каталога, корейская — карта своего каталога с ценой pokepolio
     await seed('members/bob/cards/sv03-125_fr', card('sv03', { lang: 'fr' }));
     await seed('members/bob/cards/SV2a-094_ko', card('SV2a', { lang: 'ko' }));
     await seed('members/alice/cards/SV2a-094_ja', card('SV2a', { lang: 'ja', variant: 'holo' }));
@@ -240,6 +275,8 @@ describe('ежедневная задача цен', () => {
 
   function jobFetch() {
     return stubFetch((url, init) => {
+      const korean = koreanRoute(url);
+      if (korean) return korean;
       if (url.host === 'api.tcgdex.net') {
         if (url.pathname === '/v2/en/cards/sv03-125') return json(SV03_125);
         if (url.pathname === '/v2/ja/cards/SV2a-094') return json(SV2A_094);
@@ -289,7 +326,7 @@ describe('ежедневная задача цен', () => {
     const report = await refreshClubPrices(adminFirestore(admin), { today });
 
     expect(report.members).toBe(2);
-    expect(report.tcgdex).toEqual({ sets: 2, cards: 2, refreshed: 2, failed: 0, docs: { marked: 2, partial: 0, skipped: 0 } });
+    expect(report.tcgdex).toEqual({ sets: 3, cards: 3, refreshed: 3, failed: 0, docs: { marked: 3, partial: 0, skipped: 0 } });
     expect(report.justtcg).toMatchObject({
       sets: 2,
       cards: 2,
@@ -303,6 +340,9 @@ describe('ежедневная задача цен', () => {
     expect(await read('prices/sv03')).toEqual({ cards: { 'sv03-125': { u: 24.8, e: 19.5, d: today } }, server: today });
     expect(await read(`prices/sv03/months/${month}`)).toEqual({ 'sv03-125': { [dd]: { u: 24.8, e: 19.5 } } });
     expect(await read('prices/ja_SV2a')).toEqual({ cards: { 'SV2a-094': { u: null, e: 3.1, d: today } }, server: today });
+    // Корейская карта: последняя сделка pokepolio, 3 000 вон по курсу 0.0007
+    expect(await read('prices/ko_SV2a')).toEqual({ cards: { 'SV2a-094': { u: 2.1, e: null, d: today } }, server: today });
+    expect(await read(`prices/ko_SV2a/months/${month}`)).toEqual({ 'SV2a-094': { [dd]: { u: 2.1, e: null } } });
     expect(await read('prices/jt_MBG')).toEqual({
       cards: { '3': { d: today, j: 'pokemon-japan-mbg-mega-gengar-ex', n: 'Mega Gengar ex', v: { Holofoil: 5.81 } } },
       server: today,
@@ -348,7 +388,7 @@ describe('ежедневная задача цен', () => {
     expect(calls).toEqual([]);
     expect(report.tcgdex.refreshed).toBe(0);
     expect(report.justtcg.refreshed).toBe(0);
-    expect(report.tcgdex.docs.marked).toBe(2);
+    expect(report.tcgdex.docs.marked).toBe(3);
     expect(await read('prices/sv03')).toEqual(before.sv03);
     expect(await read('prices/jt_MBG')).toEqual(before.mbg);
     expect(await read(`prices/sv03/months/${month}`)).toEqual(before.month);
@@ -362,6 +402,7 @@ describe('ежедневная задача цен', () => {
     const history = { 'sv03-125': { '01': { u: 20, e: 18 }, [dd]: { u: 30, e: 25 } } };
     await seed('prices/sv03', { cards: sv03 });
     await seed('prices/ja_SV2a', { cards: { 'SV2a-094': { u: null, e: 3, d: today } } });
+    await seed('prices/ko_SV2a', { cards: { 'SV2a-094': { u: 2, e: null, d: today } } });
     await seed('prices/jt_MBG', { cards: mbg });
     await seed('prices/jt_SV2A', { cards: { '94': { d: today, j: 'pokemon-japan-sv2a-mew-ex-094', n: 'Mew ex', v: { Holofoil: 12 } } } });
     await seed(`prices/sv03/months/${month}`, history);
@@ -441,7 +482,7 @@ describe('ежедневная задача цен', () => {
     await seed('prices/sv03', { cards: { 'sv03-125': { u: 1, e: 1, d: '2026-11-01' } }, server: '2026-11-20' });
     stubFetch(() => undefined);
     const report = await refreshClubPrices(adminFirestore(admin), { today });
-    expect(report.tcgdex).toMatchObject({ refreshed: 0, failed: 2, docs: { marked: 0, partial: 0, skipped: 2 } });
+    expect(report.tcgdex).toMatchObject({ refreshed: 0, failed: 3, docs: { marked: 0, partial: 0, skipped: 3 } });
     expect(await read('prices/sv03')).toEqual({ cards: { 'sv03-125': { u: 1, e: 1, d: '2026-11-01' } }, server: '2026-11-20' });
     expect(await read('prices/ja_SV2a')).toBeUndefined();
   });

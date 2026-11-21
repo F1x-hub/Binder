@@ -17,7 +17,16 @@ export default defineConfig({
     permissions: ['storage', 'identity'],
     // Поиск японских карт по имени на limitlesstcg.com отдаёт HTML без CORS (src/lib/limitless.ts).
     // Их JSON и CDN со сканами разрешают запросы откуда угодно, им разрешение не нужно.
-    host_permissions: ['https://limitlesstcg.com/*'],
+    // Цены и английские имена китайских карт для КНР с pikaqian.com (src/lib/pikaqian.ts) и карты
+    // Тайваня с официального asia.pokemon-card.com (src/lib/asia-tw.ts) тоже приходят без CORS.
+    // Набор карт КНР с raw.githubusercontent.com (src/lib/cn-catalog.ts) отдаётся с CORS *.
+    host_permissions: [
+      'https://limitlesstcg.com/*',
+      'https://pikaqian.com/*',
+      'https://asia.pokemon-card.com/*',
+      // Цены корейских карт (src/lib/pokepolio.ts): HTML без CORS
+      'https://www.pokepolio.com/*',
+    ],
     // OAuth-клиент типа Chrome Extension в Google Cloud (проект binder-54fb1), привязан к ID выше.
     // chrome.identity.getAuthToken берёт аккаунт, под которым залогинен Chrome.
     oauth2: {

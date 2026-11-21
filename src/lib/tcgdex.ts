@@ -87,9 +87,14 @@ export const tcgdexApi = {
   searchName: (name: string, lang: TcgdexLanguage = 'en') => list(lang, `name=${encodeURIComponent(name)}`),
 };
 
-/** Картинка карты: low — 30 КБ для миниатюр, high — 120 КБ для крупного показа. */
+/**
+ * Картинка карты: low — 30 КБ для миниатюр, high — 120 КБ для крупного показа. У TCGdex адрес
+ * без размера и формата; сканы китайских карт (GitHub, официальный сайт Тайваня) — готовые
+ * файлы одного размера, их адрес берётся как есть.
+ */
 export function cardImage(image: string | undefined, quality: 'low' | 'high'): string | null {
-  return image ? `${image}/${quality}.webp` : null;
+  if (!image) return null;
+  return /\.(?:png|jpe?g|webp)(?:\?|$)/i.test(image) ? image : `${image}/${quality}.webp`;
 }
 
 /**

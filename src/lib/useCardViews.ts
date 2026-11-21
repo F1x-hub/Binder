@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { findTwCard } from '@/lib/asia-tw';
 import { catalog } from '@/lib/catalog';
+import { cnCatalog } from '@/lib/cn-catalog';
 import { setKey, type OwnedCard } from '@/lib/collection';
 import { binderDb } from '@/lib/db';
 import { catalogFor, type TcgdexLanguage } from '@/lib/languages';
@@ -147,7 +149,24 @@ export type CardViewsState = {
 };
 
 /** Поля, которые приходят вторым шагом: при смене состава альбома они остаются у прежних карт. */
-type Late = Pick<CardView, 'price' | 'englishName' | 'limitless'>;
+type Late = Pick<CardView, 'price' | 'englishName' | 'limitless' | 'image'>;
+
+/**
+ * Скан тайваньской карты с официального сайта Pokémon Asia: у карты тайваньского каталога
+ * TCGdex, у которой там нет скана (так у большинства), и у карты, добавленной как есть
+ * с кодом сета. Имя сверяется (findTwCard): по неверно прочитанному коду нашлась бы чужая карта.
+ */
+function twScanFor(view: CardView): Promise<string | null> | null {
+  if (view.image) return null;
+  if (view.catalog === 'zh-tw' && view.localId) {
+    return findTwCard({ name: view.name, number: view.localId, setCode: view.setId }).then((card) => card?.image ?? null);
+  }
+  const { printed } = view;
+  if (printed && view.lang === 'zh-tw' && printed.setCode) {
+    return findTwCard({ name: printed.name, number: printed.number, setCode: printed.setCode }).then((card) => card?.image ?? null);
+  }
+  return null;
+}
 
 /**
  * Имена и картинки берутся из сетов TCGdex (один запрос на сет, с кэшем), цены — из общего
@@ -186,19 +205,30 @@ export function useCardViewsState(cards: OwnedCard[], ready: boolean, { prices: 
       const known = late.current;
       const base = fresh.map((view) => {
         const before = known.get(view.docId);
-        return before ? { ...view, ...before, englishName: view.englishName ?? before.englishName } : view;
+        return before
+          ? { ...view, ...before, englishName: view.englishName ?? before.englishName, image: view.image ?? before.image }
+          : view;
       });
 
       const priced = withPrices ? fresh.filter((view) => view.cardId && view.catalog && !view.approximate) : [];
       const custom = fresh.filter((view) => view.printed && view.lang === 'ja' && view.printed.setCode);
       const japanese = withPrices ? japaneseRefs(fresh) : [];
-      // У японских карт TCGdex имя японское: английское берём из перевода Limitless, по 4 запроса за раз
-      const unnamed = fresh.filter((view) => view.catalog === 'ja' && view.localId && !view.englishName);
+      // У японских карт TCGdex имя японское: английское берём из перевода Limitless, по 4 запроса за раз.
+      // У китайских карт для КНР — из PikaQian, один запрос на сет (кэш на неделю).
+      // У корейских — тоже из Limitless, у японской пары под тем же кодом сета и номером
+      const unnamed = fresh.filter(
+        (view) =>
+          (view.catalog === 'ja' || view.catalog === 'zh-cn' || view.catalog === 'ko') &&
+          view.cardId &&
+          view.localId &&
+          !view.englishName,
+      );
+      const taiwanese = fresh.filter((view) => !known.get(view.docId)?.image && twScanFor(view) !== null);
       const needsPrices = priced.length > 0 || japanese.length > 0;
       const waiting = [...priced, ...japanese.map((ref) => ({ docId: ref.key }))].some((view) => !known.has(view.docId));
       if (active) setState({ views: base, pricesLoading: needsPrices && waiting });
-      if (!needsPrices && custom.length === 0 && unnamed.length === 0) return;
-      const [prices, covers, dollars, english] = await Promise.all([
+      if (!needsPrices && custom.length === 0 && unnamed.length === 0 && taiwanese.length === 0) return;
+      const [prices, covers, dollars, english, scans] = await Promise.all([
         priced.length > 0
           ? loadPrices(
               binderDb(),
@@ -209,7 +239,13 @@ export function useCardViewsState(cards: OwnedCard[], ready: boolean, { prices: 
           (entries) => new Map(entries),
         ),
         loadJapanesePrices(binderDb(), japanese).catch(() => new Map<string, number>()),
-        mapLimit(unnamed, 4, async (view) => [view.docId, await englishNameOf(view.setId, view.localId).catch(() => null)] as const).then(
+        mapLimit(unnamed, 4, async (view) => {
+          const name =
+            view.catalog === 'zh-cn' ? cnCatalog.englishName(view.cardId!) : englishNameOf(view.setId, view.localId);
+          return [view.docId, await name.catch(() => null)] as const;
+        }).then((entries) => new Map(entries)),
+        // Страница поиска и страницы карт сайта, по 3 карты за раз (ответы кэшируются)
+        mapLimit(taiwanese, 3, async (view) => [view.docId, await (twScanFor(view) ?? Promise.resolve(null)).catch(() => null)] as const).then(
           (entries) => new Map(entries),
         ),
       ]);
@@ -222,9 +258,12 @@ export function useCardViewsState(cards: OwnedCard[], ready: boolean, { prices: 
           englishName: view.englishName ?? english.get(view.docId) ?? null,
           price: withPrices ? mergePrice(tcgdex, dollars.get(view.docId) ?? null) : null,
           limitless: covers.get(view.docId) ?? view.limitless,
+          image: view.image ?? scans.get(view.docId) ?? known.get(view.docId)?.image,
         };
       });
-      for (const view of done) known.set(view.docId, { price: view.price, englishName: view.englishName, limitless: view.limitless });
+      for (const view of done) {
+        known.set(view.docId, { price: view.price, englishName: view.englishName, limitless: view.limitless, image: view.image });
+      }
       setState({ views: done, pricesLoading: false });
     })();
     return () => {

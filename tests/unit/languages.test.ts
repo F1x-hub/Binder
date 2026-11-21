@@ -22,12 +22,16 @@ describe('каталог для языка карты', () => {
     }
   });
 
-  it('китайские для КНР не привязаны ни к одному каталогу: их сеты свои', () => {
-    expect(catalogFor('zh-cn')).toEqual({ tcgdex: null, exact: false });
+  it('у китайских для КНР свой каталог — выгрузка официальной базы, та же карта', () => {
+    expect(catalogFor('zh-cn')).toEqual({ tcgdex: 'zh-cn', exact: true });
+    expect(albumDocId('CSV1C-161', 'zh-cn')).toBe('CSV1C-161_zh-cn');
+    expect(catalogIdOf('CSV1C-161_zh-cn', 'zh-cn')).toBe('CSV1C-161');
   });
 
-  it('корейская карта — похожая из японского каталога: те же сеты и номера, другая печать', () => {
-    expect(catalogFor('ko')).toEqual({ tcgdex: 'ja', exact: false });
+  it('у корейских свой каталог — выгрузки официальной базы, та же карта, ID как у японской', () => {
+    expect(catalogFor('ko')).toEqual({ tcgdex: 'ko', exact: true });
+    expect(albumDocId('SV2a-094', 'ko')).toBe('SV2a-094_ko');
+    expect(catalogIdOf('SV2a-094_ko', 'ko')).toBe('SV2a-094');
   });
 
   it('неизвестный язык — только подсказки из английской базы', () => {

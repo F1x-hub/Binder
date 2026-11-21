@@ -85,8 +85,9 @@ export function printedOf(detected: DetectedCard): PrintedCard {
 export function toNewCard(item: Pick<ScanItem, 'detected' | 'pick' | 'details' | 'thumb'>): { card: NewCard; thumb: string | null } {
   const lang = item.detected.language;
   const { pick } = item;
-  if (pick?.source === 'limitless') {
+  if (pick?.source === 'limitless' || pick?.source === 'asia') {
     // Карты нет в TCGdex: в альбом идёт напечатанное, но имя и код сета — сверенные с Limitless
+    // (японские) или с официальным сайтом Pokémon Asia (тайваньские)
     const printed: PrintedCard = {
       ...printedOf(item.detected),
       name: pick.name.slice(0, PRINTED_LIMITS.name),

@@ -191,7 +191,9 @@ function numberOf(localId: string, total: number | string | null): string {
 
 function cardMeta(candidate: Candidate): string {
   const meta = `${candidate.setName} · ${numberOf(candidate.localId, candidate.printedTotal)}`;
-  return candidate.source === 'limitless' ? `${meta} · из Limitless TCG` : meta;
+  if (candidate.source === 'limitless') return `${meta} · из Limitless TCG`;
+  if (candidate.source === 'asia') return `${meta} · с сайта Pokémon Asia`;
+  return meta;
 }
 
 /** Что показать о готовой карте: данные из базы или то, что напечатано, если её добавляют как есть. */

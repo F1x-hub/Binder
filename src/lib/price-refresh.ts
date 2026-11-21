@@ -7,6 +7,10 @@ import {
   type Printing,
   type PrintingPrices,
 } from '@/lib/justtcg';
+import { cnCatalog } from '@/lib/cn-catalog';
+import { refreshCnPrices } from '@/lib/cn-prices';
+import { koCatalog } from '@/lib/ko-catalog';
+import { refreshKoPrices } from '@/lib/ko-prices';
 import type { TcgdexLanguage } from '@/lib/languages';
 import { namesMatch, normalizeNumber } from '@/lib/matching';
 import { tcgdexApi, type CardDetail, type TcgplayerPrice } from '@/lib/tcgdex';
@@ -107,8 +111,24 @@ export type TcgdexRefresh = {
   history: Record<string, Record<string, CardPrice>>;
 };
 
-/** Цены карт одного каталога TCGdex, по 4 запроса за раз. Карта, которую TCGdex не отдал, просто пропускается. */
+/**
+ * Цены карт одного каталога TCGdex, по 4 запроса за раз. Карта, которую TCGdex не отдал, просто пропускается.
+ * У китайского каталога для КНР цены не из TCGdex, а из PikaQian (src/lib/cn-prices.ts), у корейского —
+ * из pokepolio (src/lib/ko-prices.ts), но в том же виде.
+ */
 export async function refreshTcgdexPrices(lang: TcgdexLanguage, cardIds: string[], today: string): Promise<TcgdexRefresh> {
+  if (lang === 'zh-cn' || lang === 'ko') {
+    const prices = lang === 'zh-cn' ? await refreshCnPrices(cardIds) : await refreshKoPrices(cardIds);
+    const result: TcgdexRefresh = { prices, details: new Map(), updates: {}, history: {} };
+    for (const [id, price] of result.prices) {
+      // Карточка из каталога: по числу карточек задача понимает, что сет освежён целиком
+      const detail = await (lang === 'zh-cn' ? cnCatalog : koCatalog).card(id).catch(() => null);
+      if (detail) result.details.set(id, detail);
+      result.updates[id] = { ...price, d: today };
+      if (price.u !== null || price.e !== null) result.history[id] = { [today.slice(8)]: price };
+    }
+    return result;
+  }
   const fresh = await mapLimit(cardIds, 4, async (id) => {
     try {
       return [id, await tcgdexApi.card(id, lang)] as const;
