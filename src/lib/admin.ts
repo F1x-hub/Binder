@@ -17,8 +17,8 @@ export function isAdminRole(role: unknown): boolean {
 
 /**
  * null — ещё не известно, true/false — админ ли участник. Живая подписка на свой документ
- * участника: шапка вкладки стоит вне MembershipProvider, а Firestore всё равно держит одно
- * прослушивание на документ, лишних чтений нет.
+ * участника для страницы админа; Firestore держит одно прослушивание на документ, лишних чтений нет.
+ * Шапка вкладки берёт роль, имя и фото из MembershipProvider (та же подписка) через isAdminRole.
  */
 export function useIsAdmin(uid: string | null): boolean | null {
   const [admin, setAdmin] = useState<boolean | null>(null);

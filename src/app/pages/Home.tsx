@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
+import { handOffToScanner } from '@/app/scan-handoff';
 import { usePageTitle } from '@/app/usePageTitle';
 import { useAuth } from '@/lib/auth-state';
 import { useOwned } from '@/lib/collection-state';
@@ -8,6 +9,7 @@ import { DECK_SIZE } from '@/lib/deck-rules';
 import { CARD_FORMS, DECK_FORMS, SET_FORMS, countLabel, formatCardPrice, formatInteger, formatUsd } from '@/lib/format';
 import type { ClubMember } from '@/lib/friends';
 import { displayNames } from '@/lib/names';
+import { imageFiles } from '@/lib/photo';
 import { useClubMembers } from '@/lib/useClubMembers';
 import { collectionTotals, newestFirst, useCardViews, type CardView } from '@/lib/useCardViews';
 import { useDecks, type DecksState } from '@/lib/useDecks';
@@ -45,6 +47,7 @@ export function Home() {
   const { cards, ready, error, retry } = useOwned();
   const views = useCardViews(cards, ready);
   const decks = useDecks(uid);
+  const dragging = usePhotoDrop();
 
   if (error) {
     return (
@@ -63,11 +66,17 @@ export function Home() {
         </div>
         <aside className={styles.side} aria-label="Моя коллекция">
           <CollectionPanel views={views} ready={ready} empty={ready && cards.length === 0} decks={decks} />
-          <ScanPanel />
+          <ScanPanel dragging={dragging} />
           {!(ready && cards.length === 0) && <RecentPanel views={views} />}
           <DecksPanel decks={decks} />
         </aside>
       </div>
+      {dragging && (
+        <div className={styles.dropOverlay} aria-hidden="true">
+          <ScanIcon size={40} stroke={1.6} />
+          <span className={styles.dropTitle}>Отпусти фото — откроется сканер</span>
+        </div>
+      )}
     </>
   );
 }
@@ -245,7 +254,50 @@ function CollectionPanel({ views, ready, empty, decks }: { views: CardView[] | n
   );
 }
 
-function ScanPanel() {
+/**
+ * Фото можно бросить на любое место главной, как на главную поп-апа: откроется сканер с ними.
+ * Слушаем окно целиком, иначе файл, брошенный мимо колонок, Chrome открыл бы вместо вкладки.
+ * Реагируем только на перетаскивание файлов, а не карт и ссылок со страницы.
+ */
+function usePhotoDrop(): boolean {
+  const [, navigate] = useLocation();
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    const withFiles = (event: DragEvent) => Boolean(event.dataTransfer?.types.includes('Files'));
+    const onDragOver = (event: DragEvent) => {
+      if (!withFiles(event)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+      setDragging(true);
+    };
+    // relatedTarget null — курсор ушёл за окно (или Esc): подсветку снимаем
+    const onDragLeave = (event: DragEvent) => {
+      if (event.relatedTarget === null) setDragging(false);
+    };
+    const onDrop = (event: DragEvent) => {
+      if (!withFiles(event)) return;
+      event.preventDefault();
+      setDragging(false);
+      const files = imageFiles(event.dataTransfer?.files);
+      if (files.length === 0) return;
+      handOffToScanner(files);
+      navigate('/scan');
+    };
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    return () => {
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+    };
+  }, [navigate]);
+
+  return dragging;
+}
+
+function ScanPanel({ dragging }: { dragging: boolean }) {
   const [, navigate] = useLocation();
   return (
     <section className={styles.panel} aria-labelledby="home-scan">
@@ -256,6 +308,7 @@ function ScanPanel() {
       <Button className={styles.wide} start={<ScanIcon stroke={1.9} />} onClick={() => navigate('/scan')}>
         Сканировать карточки
       </Button>
+      <p className={styles.hint}>{dragging ? 'Отпусти фото — откроется сканер' : 'или перетащи фото на эту страницу'}</p>
     </section>
   );
 }

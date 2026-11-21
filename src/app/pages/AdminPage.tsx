@@ -610,7 +610,7 @@ function PersonRow({ person, self, cards, inviter, onInvites, onRole, onRemove }
   return (
     <li className={styles.person}>
       <Link href={`/u/${person.uid}`} className={styles.personLink}>
-        <Avatar src={person.photoURL} size={40} />
+        <Avatar src={person.photoURL} name={person.name} size={40} />
         <span className={styles.personText}>
           <span className={styles.personName}>
             {person.name}

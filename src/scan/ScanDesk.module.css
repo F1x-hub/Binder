@@ -451,6 +451,13 @@
   min-width: 0;
 }
 
+/* Готовая карта и под ней «Официальный скан / Моё фото» */
+.readyBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .removeItem {
   width: 44px;
   height: 44px;

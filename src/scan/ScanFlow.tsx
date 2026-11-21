@@ -3,11 +3,12 @@ import type { OwnedCard } from '@/lib/collection';
 import { CARD_FORMS, SIMILAR_FORMS, countLabel, formatCardPrice, rarityLabel } from '@/lib/format';
 import { LANGUAGE_LABELS, catalogFor, htmlLang } from '@/lib/languages';
 import { candidateLimitless } from '@/lib/limitless';
+import { usePhotoStore } from '@/lib/my-photos';
 import type { Candidate } from '@/lib/matching';
 import { displayNames } from '@/lib/names';
 import { imageFiles } from '@/lib/photo';
 import { DeepseekKeyField } from '@/scan/DeepseekKeyField';
-import { useScan, type Photo, type ScanItem } from '@/scan/useScan';
+import { photoOnly, useScan, type Photo, type ScanItem } from '@/scan/useScan';
 import { Button } from '@/ui/Button';
 import { CardImage } from '@/ui/CardImage';
 import { cx } from '@/ui/cx';
@@ -98,6 +99,7 @@ export function ScanFlow({ uid, owned, initialFiles, onBack, onOpenAlbum }: Prop
     body = (
       <>
         {featured && <Featured item={featured} hasPriceKey={scan.hasPriceKey} />}
+        {featured && <PhotoChoice item={featured} onChange={scan.setKeepPhoto} />}
         {scan.ready.length > 1 && <ReadyStrip items={scan.ready} onRemove={scan.skip} />}
         {featured && current && <div className={styles.divider} />}
         {scan.pending ? (
@@ -247,12 +249,14 @@ export function Featured({ item, hasPriceKey = false }: { item: ScanItem; hasPri
       : 'Добавим как есть'
     : `Распознано, ${Math.round(certainty * 100)}%`;
   const priced = item.pick !== null && !item.pick.approximate && item.price !== null;
+  // С «Моё фото» видно, что ляжет в альбом: своё фото вместо скана
+  const mine = item.keepPhoto && Boolean(item.photo);
   return (
     <section className={styles.featured}>
       <CardImage
-        image={view.image}
-        limitless={view.limitless}
-        thumb={item.thumb}
+        image={mine ? undefined : view.image}
+        limitless={mine ? null : view.limitless}
+        thumb={mine ? item.photo : item.thumb}
         name={view.name}
         number={view.number}
         className={styles.featuredImage}
@@ -276,6 +280,33 @@ export function Featured({ item, hasPriceKey = false }: { item: ScanItem; hasPri
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * «Официальный скан / Моё фото» у готовой карты, по макету PopupScan: своё фото сохранится
+ * в Google Drive участника и будет в альбоме вместо скана. Только если в настройках выбран Drive.
+ * У карты без скана выбирать нечего: её фото сохраняется в Drive само.
+ */
+export function PhotoChoice({ item, onChange }: { item: ScanItem; onChange: (itemId: string, keep: boolean) => void }) {
+  const store = usePhotoStore();
+  if (store !== 'drive' || !item.photo || item.status !== 'ready') return null;
+  if (photoOnly(item)) {
+    return <p className={styles.small}>Скана этой карты нет в базе: в альбоме будет твоё фото, оно сохранится в твой Google Drive.</p>;
+  }
+  return (
+    <div className={styles.photoChoice}>
+      <span className={styles.small}>Какое фото показывать в альбоме</span>
+      <div role="group" aria-label="Фото в альбоме" className={styles.segmented}>
+        <button type="button" aria-pressed={!item.keepPhoto} onClick={() => onChange(item.id, false)}>
+          Официальный скан
+        </button>
+        <button type="button" aria-pressed={item.keepPhoto} onClick={() => onChange(item.id, true)}>
+          Моё фото
+        </button>
+      </div>
+      {item.keepPhoto && <span className={styles.small}>Фото сохранится в твой Google Drive. Друзья увидят официальный скан.</span>}
+    </div>
   );
 }
 

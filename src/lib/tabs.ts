@@ -11,9 +11,12 @@ export function inExtension(): boolean {
   return Boolean(browser?.runtime?.id);
 }
 
-/** Адрес страницы во вкладке приложения: `/library` → `.../app.html#/library`. */
+/**
+ * Адрес страницы во вкладке приложения: `/library` → `.../app.html#/library`.
+ * Без маршрута — главная вкладки (`#/home`), как у логотипа и пустого адреса.
+ */
 export function appUrl(path: string): string {
-  const route = path.startsWith('/') ? path : '/library';
+  const route = path.startsWith('/') ? path : '/home';
   const page = inExtension() ? browser.runtime.getURL(APP_PAGE) : APP_PAGE;
   return `${page}#${route}`;
 }

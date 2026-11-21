@@ -309,3 +309,39 @@
   width: auto;
   font-size: 14px;
 }
+
+/* «Официальный скан / Моё фото» у готовой карты (макет PopupScan) */
+.photoChoice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  border: var(--border) solid var(--line);
+}
+
+.segmented button {
+  min-height: 44px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--selected);
+  color: var(--on-selected);
+}

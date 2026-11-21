@@ -416,7 +416,7 @@ function MemberOption({ member, ...props }: { member: ClubMember } & OptionProps
   const joined = joinedLabel(member.joinedAt);
   return (
     <div {...props}>
-      <Avatar src={member.photoURL} size={36} />
+      <Avatar src={member.photoURL} name={member.displayName} size={36} />
       <span className={styles.text}>
         <span className={styles.name}>{member.displayName}</span>
         {joined && <span className={styles.meta}>{joined}</span>}

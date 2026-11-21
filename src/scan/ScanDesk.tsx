@@ -3,7 +3,7 @@ import type { OwnedCard } from '@/lib/collection';
 import { CARD_FORMS, countLabel } from '@/lib/format';
 import { imageFiles } from '@/lib/photo';
 import { DeepseekKeyField } from '@/scan/DeepseekKeyField';
-import { Choice, Featured, Missing } from '@/scan/ScanFlow';
+import { Choice, Featured, Missing, PhotoChoice } from '@/scan/ScanFlow';
 import { useScan, type Photo, type ScanItem } from '@/scan/useScan';
 import { Button } from '@/ui/Button';
 import { cx } from '@/ui/cx';
@@ -16,6 +16,8 @@ import styles from './ScanDesk.module.css';
 type Props = {
   uid: string;
   owned: ReadonlyMap<string, OwnedCard>;
+  /** Фото, брошенные на главную вкладки (src/app/scan-handoff.ts) */
+  initialFiles?: File[];
   onOpenAlbum: () => void;
 };
 
@@ -30,8 +32,15 @@ type Numbered = { item: ScanItem; n: number };
  * от модели, справа список всех карт с выбором вариантов, внизу липкая кнопка «Добавить N».
  * Фото можно перетащить на страницу, вставить из буфера (Ctrl+V) или выбрать файлом.
  */
-export function ScanDesk({ uid, owned, onOpenAlbum }: Props) {
+export function ScanDesk({ uid, owned, initialFiles, onOpenAlbum }: Props) {
   const scan = useScan(uid, owned);
+  // Фото с главной добавляются один раз, как initialFiles у ScanFlow (повторный эффект их не удвоит)
+  const [start] = useState(() => ({ done: false }));
+  useEffect(() => {
+    if (start.done || !initialFiles?.length) return;
+    start.done = true;
+    scan.addPhotos(initialFiles);
+  }, [initialFiles, scan, start]);
   const [dragging, setDragging] = useState(false);
   const [chosenPhoto, setChosenPhoto] = useState<string | null>(null);
   /** Карта под курсором или в фокусе: её рамка на фото выделяется */
@@ -440,7 +449,10 @@ function CardList({
               </span>
               <div className={styles.itemBody}>
                 {item.status === 'ready' ? (
-                  <Featured item={item} hasPriceKey={scan.hasPriceKey} />
+                  <div className={styles.readyBody}>
+                    <Featured item={item} hasPriceKey={scan.hasPriceKey} />
+                    <PhotoChoice item={item} onChange={scan.setKeepPhoto} />
+                  </div>
                 ) : item.status === 'choose' ? (
                   <Choice item={item} afterFeatured={false} onChoose={scan.choose} onAsPrinted={scan.addAsPrinted} />
                 ) : (

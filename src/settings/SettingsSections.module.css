@@ -232,3 +232,21 @@
 .accountPanel .signOutPage:hover {
   background: var(--surface-2);
 }
+
+/* «Мои фото карточек» (PhotoStoreField.tsx) */
+.photoField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Сильнее одного класса: правило общего Button (width: 100%) может встать в сборке позже */
+.photoField > .photoConnect {
+  align-self: flex-start;
+  width: auto;
+}
+
+.photoError {
+  font-size: 13px;
+  font-weight: 600;
+}

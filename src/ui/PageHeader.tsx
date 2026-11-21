@@ -2,8 +2,9 @@ import type { User } from 'firebase/auth/web-extension';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import { Link, useLocation } from 'wouter';
 import { HeaderSearch } from '@/app/HeaderSearch';
-import { useIsAdmin } from '@/lib/admin';
+import { isAdminRole } from '@/lib/admin';
 import { useAuth } from '@/lib/auth-state';
+import type { Member } from '@/lib/membership';
 import { MembershipProvider, useMembership } from '@/lib/membership-state';
 import { leaveBinder } from '@/settings/leave';
 import { Avatar } from '@/ui/Avatar';
@@ -70,7 +71,7 @@ function MemberHeader({ user, location }: { user: User; location: string }) {
       )}
       <div className={styles.end}>
         {member && <HeaderSearch />}
-        <AccountMenu user={user} location={location} />
+        <AccountMenu user={user} member={member ? membership.member : null} location={location} />
       </div>
     </>
   );
@@ -89,7 +90,7 @@ function menuItems(group: HTMLElement | null): HTMLElement[] {
  * поэтому Esc, клик мимо меню и возврат фокуса на кнопку работают без своего кода.
  * Свой код: вход в меню с клавиатуры, Home/End, закрытие при уходе фокуса и после выбора пункта.
  */
-function AccountMenu({ user, location }: { user: User; location: string }) {
+function AccountMenu({ user, member, location }: { user: User; member: Member | null; location: string }) {
   const triggerId = useId();
   const menuId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -98,8 +99,11 @@ function AccountMenu({ user, location }: { user: User; location: string }) {
   // Открыли с клавиатуры (Enter, пробел, стрелка вниз): фокус сразу на первый пункт
   const enterOnOpen = useRef(false);
   const [open, setOpen] = useState(false);
-  const admin = useIsAdmin(user.uid);
-  const name = user.displayName || user.email || 'Участник';
+  const admin = isAdminRole(member?.role);
+  // Имя и фото — из своего документа участника (их можно сменить в профиле), пока он не пришёл — из Google.
+  // У участника photoURL null значит «без фото»: тогда первая буква имени, а не фото из Google.
+  const name = member?.displayName || user.displayName || user.email || 'Участник';
+  const photo = member ? member.photoURL : user.photoURL;
 
   useEffect(() => {
     const menu = menuRef.current;
@@ -191,13 +195,13 @@ function AccountMenu({ user, location }: { user: User; location: string }) {
         onClick={onTriggerClick}
         onKeyDown={onTriggerKeyDown}
       >
-        <Avatar src={user.photoURL} size={36} />
+        <Avatar src={photo} name={name} size={36} />
         <ChevronDownIcon size={16} stroke={2} />
       </button>
       {/* Сразу за кнопкой: так браузер не добавляет кнопке лишний aria-details */}
       <div ref={menuRef} id={menuId} popover="auto" className={styles.menu}>
         <div className={styles.identity}>
-          <Avatar src={user.photoURL} size={40} />
+          <Avatar src={photo} name={name} size={40} />
           <div className={styles.identityText}>
             <span className={styles.identityName}>{name}</span>
             {user.email && user.email !== name && <span className={styles.identityEmail}>{user.email}</span>}

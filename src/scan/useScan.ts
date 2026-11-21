@@ -18,6 +18,7 @@ import { loadJapanesePrices, type JapaneseRef } from '@/lib/jp-prices';
 import { activeClubKeys } from '@/lib/club-keys';
 import { loadPrices, priceKey, type CardPrice } from '@/lib/prices';
 import type { CardDetail } from '@/lib/tcgdex';
+import { cropPhoto, queuePhotos } from '@/lib/my-photos';
 import { saveThumb } from '@/lib/thumbnails';
 import { mergePrice } from '@/lib/useCardViews';
 
@@ -45,6 +46,10 @@ export type ScanItem = {
   price: CardPrice | null;
   /** Вырезка карты из фото (WebP): обложка, если у карты нет скана в базе */
   thumb: string | null;
+  /** Своё фото карты 720 px: уходит в Google Drive участника, если он хранит фото там */
+  photo: string | null;
+  /** «Моё фото»: сохранить фото в Drive и показывать его в альбоме вместо официального скана */
+  keepPhoto: boolean;
   /** База карт не ответила: искать можно ещё раз */
   searchFailed: boolean;
 };
@@ -105,6 +110,11 @@ export function toNewCard(item: Pick<ScanItem, 'detected' | 'pick' | 'details' |
   const printed = printedOf(item.detected);
   const { docId, setId } = customCard(lang, printed);
   return { card: { docId, setId, lang, variant: variantFor(item.detected, undefined), printed }, thumb: item.thumb };
+}
+
+/** У карты нет официального скана ни в TCGdex, ни в Limitless: своё фото — единственная картинка. */
+export function photoOnly(item: Pick<ScanItem, 'pick'>): boolean {
+  return !item.pick || (!item.pick.image && item.pick.source !== 'limitless');
 }
 
 /** Поиск в базе; если база не ответила, карта не найдена, но искать можно снова. */
@@ -238,6 +248,8 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
             details: {},
             price: null,
             thumb: cropCard(prepared.canvas, card.box, detected.length === 1),
+            photo: cropPhoto(prepared.canvas, card.box, detected.length === 1),
+            keepPhoto: false,
             searchFailed: failed,
           };
           setItems((list) => [...list, item]);
@@ -281,6 +293,9 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
 
   const skip = (itemId: string) => updateItem(itemId, () => ({ status: 'skipped' }));
 
+  /** «Официальный скан» или «Моё фото» для этой карты (с Google Drive в настройках). */
+  const setKeepPhoto = (itemId: string, keep: boolean) => updateItem(itemId, () => ({ keepPhoto: keep }));
+
   const ready = items.filter((item) => item.status === 'ready');
   const pending = items.find((item) => item.status === 'choose') ?? null;
   const missing = items.find((item) => item.status === 'not-found') ?? null;
@@ -302,6 +317,14 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
       await Promise.all(
         entries.map((entry) => (entry.thumb ? saveThumb(entry.card.docId, entry.thumb).catch(() => undefined) : undefined)),
       );
+      // Свои фото — в Google Drive, если он выбран в настройках: с «Моё фото» и у карт без скана
+      await queuePhotos(
+        ready.flatMap((item, index) =>
+          item.photo && (item.keepPhoto || photoOnly(item))
+            ? [{ docId: entries[index]!.card.docId, dataUrl: item.photo, show: 'mine' as const }]
+            : [],
+        ),
+      ).catch(() => undefined);
       setAdded(entries.length);
       setItems([]);
       setPhotos([]);
@@ -339,6 +362,7 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
     addAsPrinted,
     retry,
     skip,
+    setKeepPhoto,
     addAll,
     reset,
   };

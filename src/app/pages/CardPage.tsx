@@ -39,6 +39,7 @@ import {
   type PricePoint,
 } from '@/lib/price-history';
 import { utcDay } from '@/lib/prices';
+import { prefersPhoto, setPhotoChoice } from '@/lib/my-photos';
 import { removeThumb } from '@/lib/thumbnails';
 import { useCardViews, type CardView } from '@/lib/useCardViews';
 import { Avatar } from '@/ui/Avatar';
@@ -93,18 +94,24 @@ const releaseFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 
 
 export function CardDetails({ view, uid }: { view: CardView; uid: string }) {
   const [viewer, setViewer] = useState(false);
-  const [photo, setPhoto] = useState<'scan' | 'mine'>('scan');
+  // Выбор из сканера или из прошлого захода: своё фото из Google Drive помнит, что показывать
+  const [photo, setPhoto] = useState<'scan' | 'mine'>(() => (prefersPhoto(view.thumb) ? 'mine' : 'scan'));
   const text = useCardText(view);
   const hasScan = Boolean(view.image || view.limitless);
   const canToggle = hasScan && Boolean(view.thumb);
   const showMine = canToggle ? photo === 'mine' : !hasScan;
+  const pickPhoto = (next: 'scan' | 'mine') => {
+    setPhoto(next);
+    void setPhotoChoice(view.docId, next);
+  };
   const holo = view.variant === 'holo' || view.variant === 'reverse';
   // Английское имя — главным, напечатанное (японское) — подписью под ним
   const names = displayNames(view.name, view.englishName);
   const image = {
     image: showMine ? undefined : view.image,
     limitless: showMine ? null : view.limitless,
-    thumb: view.thumb,
+    // При «Официальный скан» своё фото не передаётся: CardImage иначе поставил бы его первым
+    thumb: canToggle && !showMine ? null : view.thumb,
     name: names.primary,
     number: numberLabel(view),
     holo,
@@ -132,10 +139,10 @@ export function CardDetails({ view, uid }: { view: CardView; uid: string }) {
           <p className={styles.hint}>Наведи курсор, чтобы покрутить карту, нажми — чтобы рассмотреть</p>
           {canToggle && (
             <div role="group" aria-label="Какое фото показывать" className={styles.segmented}>
-              <button type="button" aria-pressed={photo === 'scan'} onClick={() => setPhoto('scan')}>
+              <button type="button" aria-pressed={photo === 'scan'} onClick={() => pickPhoto('scan')}>
                 Официальный скан
               </button>
-              <button type="button" aria-pressed={photo === 'mine'} onClick={() => setPhoto('mine')}>
+              <button type="button" aria-pressed={photo === 'mine'} onClick={() => pickPhoto('mine')}>
                 Моё фото
               </button>
             </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { LANGUAGE_LABELS, type CardLanguage } from '@/lib/languages';
 import { limitlessImage, type LimitlessRef } from '@/lib/limitless';
+import { usePrefersPhoto } from '@/lib/my-photos';
 import { cardImage } from '@/lib/tcgdex';
 import { cx } from '@/ui/cx';
 import styles from './CardImage.module.css';
@@ -10,7 +11,10 @@ type Props = {
   image?: string;
   /** Где взять скан в Limitless TCG, если в TCGdex его нет или он не загрузился */
   limitless?: LimitlessRef | null;
-  /** Обложка из фото этого браузера: если скана нет ни в одной базе */
+  /**
+   * Своё фото: вырезка из фото сканера или фото из Google Drive участника. Показывается,
+   * если скана нет ни в одной базе, или вместо скана, если для этой карты выбрано «Моё фото».
+   */
   thumb?: string | null;
   name: string;
   /** Номер для текстовой заглушки */
@@ -22,11 +26,14 @@ type Props = {
 };
 
 /**
- * Карта: официальный скан из TCGdex, потом скан из Limitless TCG, потом вырезка
- * из своего фото, а если нет и её (карта друга, другой браузер) — табличка с именем и номером.
+ * Карта: официальный скан из TCGdex, потом скан из Limitless TCG, потом своё фото,
+ * а если нет и его (карта друга, другой браузер) — табличка с именем и номером.
+ * Если для карты выбрано «Моё фото» (src/lib/my-photos.ts), своё фото идёт первым.
  */
 export function CardImage({ image, limitless, thumb, name, number, lang, quality = 'low', className }: Props) {
+  const mine = usePrefersPhoto(thumb);
   const sources = [
+    mine ? thumb : null,
     cardImage(image, quality),
     limitless ? limitlessImage(limitless, quality === 'high' ? 'LG' : 'SM') : null,
   ].filter((source): source is string => Boolean(source));
@@ -40,7 +47,7 @@ export function CardImage({ image, limitless, thumb, name, number, lang, quality
           src={src}
           alt={name}
           loading="lazy"
-          className={styles.image}
+          className={cx(styles.image, src === thumb && styles.photo)}
           onError={() => setFailed((previous) => new Set(previous).add(src))}
         />
       ) : thumb ? (

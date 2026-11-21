@@ -4,6 +4,7 @@ import { Link } from 'wouter';
 import { invitesLeftLabel } from '@/lib/format';
 import type { Member } from '@/lib/membership';
 import { DeepseekKeyField } from '@/scan/DeepseekKeyField';
+import { PhotoStoreField } from '@/settings/PhotoStoreField';
 import { memberSinceLabel } from '@/settings/account';
 import type { ThemeId } from '@/theme/themes';
 import { Avatar } from '@/ui/Avatar';
@@ -17,16 +18,7 @@ import styles from './SettingsSections.module.css';
  */
 export type SettingsLayout = 'popup' | 'page';
 
-/** soon — вариант ещё не сделан: виден, но выбрать его нельзя. */
-const PHOTO_STORES = [
-  { id: 'none', label: 'Не хранить, только для сканера', soon: false },
-  { id: 'drive', label: 'Сохранять в мой Google Drive', soon: true },
-  { id: 'cloud', label: 'Сохранять превью в облаке Binder', soon: true },
-] as const;
-
-const PHOTO_NOTE = 'Сейчас фото нужно только сканеру и после распознавания не хранится. Google Drive и облако Binder появятся позже.';
-/** В поп-апе места мало, а «скоро» у вариантов уже говорит, что они появятся позже. */
-const PHOTO_NOTE_SHORT = 'Сейчас фото нужно только сканеру и после распознавания не хранится.';
+const PHOTO_NOTE = 'Своё фото карты можно хранить в своём Google Drive и показывать в альбоме вместо официального скана. Облако Binder появится позже.';
 
 type SectionsProps = {
   layout: SettingsLayout;
@@ -44,18 +36,8 @@ export function SettingsSections({ layout, theme, onTheme }: SectionsProps) {
 
   const keys = <DeepseekKeyField />;
   const themes = <ThemePicker value={theme} onChange={onTheme} labelledBy={themeTitle} />;
-  // Хранение фото ещё не сделано: доступен только вариант «Не хранить», остальные приглушены с пометкой «скоро»
-  const photos = (
-    <div role="radiogroup" aria-labelledby={photosTitle} className={styles.radios}>
-      {PHOTO_STORES.map(({ id, label, soon }) => (
-        <label key={id} className={soon ? `${styles.radio} ${styles.radioSoon}` : styles.radio}>
-          <input type="radio" name="photo-store" value={id} defaultChecked={id === 'none'} disabled={soon} />
-          <span>{label}</span>
-          {soon && <span className={styles.soon}>скоро</span>}
-        </label>
-      ))}
-    </div>
-  );
+  // Не хранить или Google Drive; облако Binder приглушено с пометкой «скоро»
+  const photos = <PhotoStoreField labelledBy={photosTitle} compact={layout === 'popup'} />;
 
   if (layout === 'popup') {
     return (
@@ -72,7 +54,6 @@ export function SettingsSections({ layout, theme, onTheme }: SectionsProps) {
             Мои фото карточек
           </h2>
           {photos}
-          <p className={styles.note}>{PHOTO_NOTE_SHORT}</p>
         </section>
       </>
     );
@@ -122,11 +103,13 @@ type AccountProps = {
 export function AccountSummary({ layout, user, member, onSignOut }: AccountProps) {
   const titleId = useId();
   const email = user.email ?? 'Без почты';
+  // Имя и фото — из документа участника: их меняют в профиле. photoURL null — «без фото», тогда буква имени
+  const name = member.displayName || user.displayName || email;
 
   if (layout === 'popup') {
     return (
       <>
-        <Avatar src={user.photoURL} size={36} />
+        <Avatar src={member.photoURL} name={name} size={36} />
         <div className={styles.account}>
           <span className={styles.accountName}>{email}</span>
           <span className={styles.accountNote}>{invitesLeftLabel(member.invitesLeft)}</span>
@@ -145,9 +128,9 @@ export function AccountSummary({ layout, user, member, onSignOut }: AccountProps
         Аккаунт
       </h2>
       <div className={styles.person}>
-        <Avatar src={user.photoURL} size={56} />
+        <Avatar src={member.photoURL} name={name} size={56} />
         <div className={styles.account}>
-          <span className={styles.personName}>{user.displayName || member.displayName || email}</span>
+          <span className={styles.personName}>{name}</span>
           <span className={styles.personEmail}>{email}</span>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { GoogleAuthProvider, signInWithCredential, signOut } from 'firebase/auth
 import { browser } from 'wxt/browser';
 import { AuthMessage } from '@/lib/auth-errors';
 import { binderAuth } from '@/lib/firebase';
+import { forgetDriveToken } from '@/lib/drive-setup';
 import { send } from '@/lib/messages';
 
 /**
@@ -34,5 +35,6 @@ export async function signInWithGoogle(): Promise<void> {
 export async function signOutOfBinder(): Promise<void> {
   const cached = await browser.identity.getAuthToken({ interactive: false }).catch(() => null);
   if (cached?.token) await browser.identity.removeCachedAuthToken({ token: cached.token });
+  await forgetDriveToken().catch(() => undefined);
   await signOut(binderAuth());
 }

@@ -2,7 +2,9 @@ import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { googleToken, signInWithGoogleToken } from '@/lib/auth';
 import { authErrorMessage } from '@/lib/auth-errors';
+import { driveErrorMessage } from '@/lib/drive';
 import { isMessage, type Reply } from '@/lib/messages';
+import { connectDrive } from '@/lib/drive-setup';
 import { openApp } from '@/lib/tabs';
 
 /**
@@ -23,13 +25,17 @@ async function handleTokenRequest(fromTab: boolean): Promise<Reply> {
 export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message, sender, sendResponse: (reply: Reply) => void) => {
     if (!isMessage(message)) return false;
+    // drive/connect: окно согласия на Google Drive закрывает поп-ап, поэтому подключает service worker
     const task =
       message.type === 'app/open'
         ? openApp(message.path).then((): Reply => ({ ok: true }))
-        : handleTokenRequest(Boolean(sender.tab));
+        : message.type === 'drive/connect'
+          ? connectDrive().then((): Reply => ({ ok: true }))
+          : handleTokenRequest(Boolean(sender.tab));
     task.then(sendResponse, (error: unknown) => {
       console.warn('[binder]', error);
-      const text = message.type === 'auth/token' ? authErrorMessage(error) : String(error);
+      const text =
+        message.type === 'auth/token' ? authErrorMessage(error) : message.type === 'drive/connect' ? driveErrorMessage(error) : String(error);
       sendResponse({ ok: false, error: text });
     });
     return true; // ответ придёт асинхронно

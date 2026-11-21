@@ -5,6 +5,7 @@ describe('isMessage', () => {
   it('принимает известные сообщения', () => {
     expect(isMessage({ type: 'app/open', path: '/library' })).toBe(true);
     expect(isMessage({ type: 'auth/token' })).toBe(true);
+    expect(isMessage({ type: 'drive/connect' })).toBe(true);
   });
 
   it('отклоняет чужое и неполное', () => {
