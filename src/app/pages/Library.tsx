@@ -6,13 +6,16 @@ import { useOwned } from '@/lib/collection-state';
 import { CARD_FORMS, DECK_FORMS, SET_FORMS, countLabel, formatCardPrice, formatUsd } from '@/lib/format';
 import { filterCards, filterChoices, sortCards, type LibraryView } from '@/lib/library-filters';
 import { useCardFacets } from '@/lib/useCardFacets';
-import { collectionTotals, useCardViews } from '@/lib/useCardViews';
+import { collectionChange } from '@/lib/collection-history';
+import { collectionTotals, useCardViewsState } from '@/lib/useCardViews';
+import { useCollectionHistory } from '@/lib/useCollectionHistory';
 import { useDecks } from '@/lib/useDecks';
 import { Button } from '@/ui/Button';
 import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/EmptyState';
 import { PlusIcon } from '@/ui/Icons';
 import { Skeleton, SkeletonArea } from '@/ui/Skeleton';
+import { ValueChart } from '@/ui/ValueChart';
 import { BinderSpread } from './library/BinderSpread';
 import { CardGrid } from './library/CardGrid';
 import { CardList } from './library/CardList';
@@ -39,7 +42,11 @@ export function Library() {
   const [, navigate] = useLocation();
   const auth = useAuth();
   const { cards, ready, error, retry } = useOwned();
-  const views = useCardViews(cards, ready);
+  const { views, pricesLoading } = useCardViewsState(cards, ready);
+  const history = useCollectionHistory(views, pricesLoading);
+  const change = collectionChange(history);
+  // Пока цены не пришли, сумма была бы «$0,00»: на её месте заглушка
+  const priced = views !== null && !pricesLoading;
   const { facets, loading: facetsLoading } = useCardFacets(views);
   const { state, setView, setFilters, resetFilters, setSort, setSpread } = useLibraryState();
   const { view, filters, sort } = state;
@@ -92,13 +99,22 @@ export function Library() {
       <section className={album.heroRow}>
         <div className={styles.hero}>
           <div className={styles.heroLabel}>Моя коллекция</div>
-          {/* Стоимость известна, когда карты разложены; число карточек и сетов — сразу с альбомом */}
-          <div className={styles.heroValue}>{views ? formatUsd(totals.value, true) : <Skeleton shape="text" width="4.4em" />}</div>
-          {views && totals.euro > 0 && (
+          {/* Стоимость известна, когда пришли цены; число карточек и сетов — сразу с альбомом */}
+          <div className={styles.heroValue}>{priced ? formatUsd(totals.value, true) : <Skeleton shape="text" width="4.4em" />}</div>
+          {priced && totals.euro > 0 && (
             <div className={album.euro}>и {formatCardPrice({ u: null, e: totals.euro })} по ценам Cardmarket</div>
           )}
-          <div className={styles.heroMeta}>{ready ? meta : <Skeleton shape="text" width="15em" />}</div>
+          <div className={cx(styles.heroMeta, album.metaRow)}>
+            {change && (
+              <span className={cx(album.change, change.direction === 'up' && album.up, change.direction === 'down' && album.down)}>
+                {change.text}
+              </span>
+            )}
+            <span>{ready ? meta : <Skeleton shape="text" width="15em" />}</span>
+          </div>
         </div>
+        {/* График за 30 дней — когда пришли цены: по ним считается последний день */}
+        {ready && <ValueChart history={priced ? history : null} variant="compact" className={album.valueChart} />}
         <div className={album.heroActions}>
           <div className={album.views} role="group" aria-label="Вид альбома">
             {VIEWS.map((option) => (

@@ -12,6 +12,32 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* «▲ 12,4% за 30 дней» и «148 карточек · 6 сетов» в одну строку, как в макете */
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.change {
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.up {
+  color: var(--up);
+}
+
+.down {
+  color: var(--down);
+}
+
+/* График стоимости встаёт по нижнему краю шапки, между суммой и кнопками */
+.valueChart {
+  align-self: flex-end;
+}
+
 .heroActions {
   margin-left: auto;
   display: flex;

@@ -1,0 +1,138 @@
+/* Маленький график в шапке альбома: 320 × 64, как в макете Library, без осей */
+.compact {
+  width: 320px;
+  max-width: 100%;
+  /* Кружки на линии обведены цветом фона страницы, а не панели */
+  --plot-ring: var(--bg);
+}
+
+.compactPlot {
+  width: 100%;
+}
+
+.compactNote {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Панель для главной: как «История цены» на странице карточки */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  box-shadow: var(--panel-shadow);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.up {
+  color: var(--up);
+  font-weight: 600;
+}
+
+.down {
+  color: var(--down);
+  font-weight: 600;
+}
+
+.segmented {
+  margin-left: auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  border: var(--border) solid var(--line);
+}
+
+.segmented button {
+  min-height: 38px;
+  min-width: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented button:hover {
+  color: var(--text);
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--selected);
+  color: var(--on-selected);
+}
+
+.chart {
+  display: flex;
+  gap: 12px;
+}
+
+.axis {
+  position: relative;
+  width: 64px;
+  height: 200px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.axis span {
+  position: absolute;
+  right: 0;
+  white-space: nowrap;
+}
+
+.xAxis {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 76px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.empty {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.source {
+  font-size: 12px;
+  color: var(--muted);
+}

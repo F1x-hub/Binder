@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { catalog } from '@/lib/catalog';
 import { setKey, type OwnedCard } from '@/lib/collection';
 import { binderDb } from '@/lib/db';
@@ -96,7 +96,8 @@ async function verifiedLimitless(card: OwnedCard): Promise<LimitlessRef | null> 
 export function japaneseRefs(views: CardView[]): JapaneseRef[] {
   return views.flatMap((view): JapaneseRef[] => {
     const printing = view.variant ?? 'normal';
-    if (view.catalog === 'ja' && view.localId) {
+    // Корейская карта из японского каталога — похожая: японская цена была бы чужой
+    if (view.catalog === 'ja' && view.localId && !view.approximate) {
       return [
         {
           key: view.docId,
@@ -134,6 +135,20 @@ export function mergePrice(tcgdex: CardPrice | null, dollars: number | null): Ca
   return { u: tcgdex?.u ?? dollars, e: tcgdex?.e ?? null };
 }
 
+/** Карты альбома и то, загружены ли уже цены. */
+export type CardViewsState = {
+  views: CardView[] | null;
+  /**
+   * Цены ещё грузятся: карты уже разложены, но цен у них пока нет, и сумма альбома была бы
+   * нулём. После первой загрузки при смене состава альбома цены прежних карт остаются
+   * на месте, и флаг поднимается, только если без цены осталась новая карта.
+   */
+  pricesLoading: boolean;
+};
+
+/** Поля, которые приходят вторым шагом: при смене состава альбома они остаются у прежних карт. */
+type Late = Pick<CardView, 'price' | 'englishName' | 'limitless'>;
+
 /**
  * Имена и картинки берутся из сетов TCGdex (один запрос на сет, с кэшем), цены — из общего
  * кэша клуба, обложки карт без скана — из этого браузера. Сначала карты показываются без цен,
@@ -141,8 +156,14 @@ export function mergePrice(tcgdex: CardPrice | null, dollars: number | null): Ca
  * она была бы чужой. prices: false — без цен (поиску в шапке они не нужны, а второй
  * одновременный запрос цен удвоил бы чтения и записи общего кэша).
  */
-export function useCardViews(cards: OwnedCard[], ready: boolean, { prices: withPrices = true } = {}): CardView[] | null {
-  const [views, setViews] = useState<CardView[] | null>(null);
+export function useCardViews(cards: OwnedCard[], ready: boolean, options: { prices?: boolean } = {}): CardView[] | null {
+  return useCardViewsState(cards, ready, options).views;
+}
+
+/** То же, что useCardViews, и вместе с картами — грузятся ли ещё цены (pricesLoading). */
+export function useCardViewsState(cards: OwnedCard[], ready: boolean, { prices: withPrices = true } = {}): CardViewsState {
+  const [state, setState] = useState<CardViewsState>({ views: null, pricesLoading: false });
+  const late = useRef(new Map<string, Late>());
   const key = cards
     .map((card) => `${card.docId}:${card.count}`)
     .sort()
@@ -160,15 +181,23 @@ export function useCardViews(cards: OwnedCard[], ready: boolean, { prices: withP
         ).then((entries) => new Map(entries)),
         loadThumbs(cards.map((card) => card.docId)).catch(() => new Map<string, string>()),
       ]);
-      const base = cards.map((card) => viewOf(card, sets.get(setKey(card)) ?? null, thumbs.get(card.docId) ?? null));
-      if (active) setViews(base);
+      const fresh = cards.map((card) => viewOf(card, sets.get(setKey(card)) ?? null, thumbs.get(card.docId) ?? null));
+      // Прежние цены, английские имена и сканы остаются, пока второй шаг не пришлёт новые
+      const known = late.current;
+      const base = fresh.map((view) => {
+        const before = known.get(view.docId);
+        return before ? { ...view, ...before, englishName: view.englishName ?? before.englishName } : view;
+      });
 
-      const priced = withPrices ? base.filter((view) => view.cardId && view.catalog && !view.approximate) : [];
-      const custom = base.filter((view) => view.printed && view.lang === 'ja' && view.printed.setCode);
-      const japanese = withPrices ? japaneseRefs(base) : [];
+      const priced = withPrices ? fresh.filter((view) => view.cardId && view.catalog && !view.approximate) : [];
+      const custom = fresh.filter((view) => view.printed && view.lang === 'ja' && view.printed.setCode);
+      const japanese = withPrices ? japaneseRefs(fresh) : [];
       // У японских карт TCGdex имя японское: английское берём из перевода Limitless, по 4 запроса за раз
-      const unnamed = base.filter((view) => view.catalog === 'ja' && view.localId && !view.englishName);
-      if (priced.length === 0 && custom.length === 0 && japanese.length === 0 && unnamed.length === 0) return;
+      const unnamed = fresh.filter((view) => view.catalog === 'ja' && view.localId && !view.englishName);
+      const needsPrices = priced.length > 0 || japanese.length > 0;
+      const waiting = [...priced, ...japanese.map((ref) => ({ docId: ref.key }))].some((view) => !known.has(view.docId));
+      if (active) setState({ views: base, pricesLoading: needsPrices && waiting });
+      if (!needsPrices && custom.length === 0 && unnamed.length === 0) return;
       const [prices, covers, dollars, english] = await Promise.all([
         priced.length > 0
           ? loadPrices(
@@ -185,18 +214,18 @@ export function useCardViews(cards: OwnedCard[], ready: boolean, { prices: withP
         ),
       ]);
       if (!active) return;
-      setViews(
-        base.map((view) => {
-          const tcgdex =
-            view.cardId && view.catalog && !view.approximate ? (prices.get(priceKey(view.catalog, view.cardId)) ?? null) : null;
-          return {
-            ...view,
-            englishName: view.englishName ?? english.get(view.docId) ?? null,
-            price: mergePrice(tcgdex, dollars.get(view.docId) ?? null),
-            limitless: covers.get(view.docId) ?? view.limitless,
-          };
-        }),
-      );
+      const done = fresh.map((view) => {
+        const tcgdex =
+          view.cardId && view.catalog && !view.approximate ? (prices.get(priceKey(view.catalog, view.cardId)) ?? null) : null;
+        return {
+          ...view,
+          englishName: view.englishName ?? english.get(view.docId) ?? null,
+          price: withPrices ? mergePrice(tcgdex, dollars.get(view.docId) ?? null) : null,
+          limitless: covers.get(view.docId) ?? view.limitless,
+        };
+      });
+      for (const view of done) known.set(view.docId, { price: view.price, englishName: view.englishName, limitless: view.limitless });
+      setState({ views: done, pricesLoading: false });
     })();
     return () => {
       active = false;
@@ -204,7 +233,7 @@ export function useCardViews(cards: OwnedCard[], ready: boolean, { prices: withP
     // cards меняются вместе с key: пересчитываем только при изменении состава альбома
   }, [key, ready, withPrices]);
 
-  return views;
+  return state;
 }
 
 const cents = (value: number) => Math.round(value * 100) / 100;
