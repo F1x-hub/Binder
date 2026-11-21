@@ -31,6 +31,8 @@ export type Photo = {
 /** Одна карта с фото: узнана, ждёт выбора, не найдена или пропущена. */
 export type ScanItem = {
   id: string;
+  /** С какого фото карта: во вкладке её номер рисуется поверх этого фото */
+  photoId: string;
   detected: DetectedCard;
   status: 'ready' | 'choose' | 'not-found' | 'skipped';
   options: Candidate[];
@@ -229,6 +231,7 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
           const { decision, failed } = await search(card);
           const item: ScanItem = {
             id: nextId(),
+            photoId: photo.id,
             detected: card,
             ...fromDecision(decision),
             manual: false,
@@ -321,6 +324,8 @@ export function useScan(uid: string, owned: ReadonlyMap<string, OwnedCard>) {
     setKey,
     hasPriceKey,
     photos,
+    /** Все карты по порядку распознавания, с пропущенными: вкладка показывает их списком */
+    items,
     ready,
     pending,
     missing,

@@ -5,31 +5,6 @@
   flex-direction: column;
 }
 
-/* Во вкладке сканер живёт в панели посередине */
-.page {
-  max-width: 560px;
-  border-radius: var(--radius-panel);
-  background: var(--surface);
-  border: var(--border) solid var(--line);
-  box-shadow: var(--panel-shadow);
-  overflow: hidden;
-}
-
-.pageHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 20px 20px 0;
-}
-
-.pageTitle {
-  font-family: var(--font-display);
-  font-weight: var(--display-weight);
-  font-size: round(calc(22px * var(--display-scale)), 1px);
-  letter-spacing: var(--display-tracking);
-}
-
 .headerProgress {
   font-size: 13px;
   color: var(--header-muted);
@@ -40,10 +15,6 @@
   height: 2px;
   flex-shrink: 0;
   background: var(--line);
-}
-
-.page .bar {
-  margin-top: 16px;
 }
 
 .barFill {
@@ -232,7 +203,8 @@
   border: var(--border) solid var(--line);
 }
 
-.page .option {
+/* Варианты внутри панели вкладки (ScanDesk): на поверхности панели — вторая поверхность */
+.onSurface .option {
   background: var(--surface-2);
 }
 

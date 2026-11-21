@@ -21,12 +21,14 @@ type Props = {
   owned: ReadonlyMap<string, OwnedCard>;
   /** Фото, перетащенные на главную поп-апа */
   initialFiles?: File[];
-  /** Есть в поп-апе: тогда сверху шапка с кнопкой «Назад» */
-  onBack?: () => void;
+  onBack: () => void;
   onOpenAlbum: () => void;
 };
 
-/** Сканер: фото → DeepSeek → сверка с базой → выбор, если есть сомнения → альбом. */
+/**
+ * Сканер поп-апа: фото → DeepSeek → сверка с базой → выбор, если есть сомнения → альбом.
+ * Во вкладке тот же сканер (`useScan`) разложен в две колонки — `ScanDesk`.
+ */
 export function ScanFlow({ uid, owned, initialFiles, onBack, onOpenAlbum }: Props) {
   const scan = useScan(uid, owned);
   const input = useRef<HTMLInputElement>(null);
@@ -125,7 +127,7 @@ export function ScanFlow({ uid, owned, initialFiles, onBack, onOpenAlbum }: Prop
 
   return (
     <div
-      className={cx(styles.root, !onBack && styles.page)}
+      className={styles.root}
       onDragOver={(event) => {
         event.preventDefault();
         setDragging(true);
@@ -133,18 +135,11 @@ export function ScanFlow({ uid, owned, initialFiles, onBack, onOpenAlbum }: Prop
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      {onBack ? (
-        <PopupHeader
-          title="Сканирование"
-          onBack={onBack}
-          end={progress && <span className={styles.headerProgress}>{progress}</span>}
-        />
-      ) : (
-        <div className={styles.pageHead}>
-          <h1 className={styles.pageTitle}>Сканирование</h1>
-          {progress && <span className={styles.muted}>{progress}</span>}
-        </div>
-      )}
+      <PopupHeader
+        title="Сканирование"
+        onBack={onBack}
+        end={progress && <span className={styles.headerProgress}>{progress}</span>}
+      />
       {total > 0 && (
         <div className={styles.bar} aria-hidden="true">
           <div className={styles.barFill} style={{ width: `${(scan.finished / total) * 100}%` }} />
