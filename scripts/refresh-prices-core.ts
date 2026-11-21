@@ -1,4 +1,4 @@
-import type { Firestore } from 'firebase-admin/firestore';
+import { FieldPath, type Firestore } from 'firebase-admin/firestore';
 import { clubKeysFrom } from '@/lib/club-keys';
 import { ownedFromDoc, type OwnedCard } from '@/lib/collection';
 import { blockUntil, nextUsage, type BlockReason, type KeyStates, type UsageMetadata } from '@/lib/justtcg-keys';
@@ -38,11 +38,23 @@ export type RefreshOptions = {
   now?: () => number;
 };
 
+/** Документы кэша: marked — освежён целиком и помечен задачей, partial — записаны только освежённые карты, skipped — не тронут. */
+export type DocCounts = { marked: number; partial: number; skipped: number };
+
 export type RefreshReport = {
   members: number;
   cards: number;
-  tcgdex: { sets: number; cards: number; refreshed: number; failed: number };
-  justtcg: { sets: number; cards: number; refreshed: number; searched: number; left: number; keys: number; error: string | null };
+  tcgdex: { sets: number; cards: number; refreshed: number; failed: number; docs: DocCounts };
+  justtcg: {
+    sets: number;
+    cards: number;
+    refreshed: number;
+    searched: number;
+    left: number;
+    keys: number;
+    error: string | null;
+    docs: DocCounts;
+  };
 };
 
 /**
@@ -148,24 +160,36 @@ async function readCards<T>(db: Firestore, docId: string): Promise<Record<string
   return ((await db.doc(`prices/${docId}`).get()).data()?.cards ?? {}) as Record<string, T>;
 }
 
+type Written = keyof DocCounts;
+
 /**
- * Одна запись на документ кэша и одна на месяц истории, как у браузера. mark — сет освежён
- * целиком, и документ получает отметку задачи; иначе прежняя отметка остаётся как была.
+ * Одна запись на документ кэша и одна на месяц истории, как у браузера, но точечно: пишутся
+ * только пути cards.{ID} освежённых карт и {ID}.{ДД} истории (mergeFields), остальные карты
+ * документа не трогаются. Пустую карту cards писать нельзя: при merge она заменила бы все
+ * карты документа. mark — все карты альбомов в документе сегодня свежие, и документ получает
+ * отметку задачи server; иначе прежняя отметка остаётся как была.
  */
 async function writePrices(
   db: Firestore,
   docId: string,
-  update: { cards: Record<string, unknown>; history: Record<string, unknown> },
+  update: { cards: Record<string, unknown>; history: Record<string, Record<string, unknown>> },
   today: string,
   mark: boolean,
-) {
+): Promise<Written> {
   const { cards, history } = update;
-  if (!mark && Object.keys(cards).length === 0) return;
+  const ids = Object.keys(cards);
+  if (ids.length === 0 && !mark) return 'skipped';
+  const fields = ids.map((id) => new FieldPath('cards', id));
+  if (mark) fields.push(new FieldPath(SERVER_FIELD));
   const batch = db.batch();
-  batch.set(db.doc(`prices/${docId}`), mark ? { cards, [SERVER_FIELD]: today } : { cards }, { merge: true });
-  if (Object.keys(history).length > 0) batch.set(db.doc(`prices/${docId}/months/${today.slice(0, 7)}`), history, { merge: true });
+  batch.set(db.doc(`prices/${docId}`), { cards, [SERVER_FIELD]: today }, { mergeFields: fields });
+  const days = Object.entries(history).flatMap(([id, byDay]) => Object.keys(byDay).map((day) => new FieldPath(id, day)));
+  if (days.length > 0) batch.set(db.doc(`prices/${docId}/months/${today.slice(0, 7)}`), history, { mergeFields: days });
   await batch.commit();
+  return mark ? 'marked' : 'partial';
 }
+
+const noDocs = (): DocCounts => ({ marked: 0, partial: 0, skipped: 0 });
 
 export async function refreshClubPrices(db: Firestore, options: RefreshOptions = {}): Promise<RefreshReport> {
   const today = options.today ?? utcDay();
@@ -174,8 +198,8 @@ export async function refreshClubPrices(db: Firestore, options: RefreshOptions =
   const report: RefreshReport = {
     members,
     cards: cards.length,
-    tcgdex: { sets: 0, cards: 0, refreshed: 0, failed: 0 },
-    justtcg: { sets: 0, cards: 0, refreshed: 0, searched: 0, left: 0, keys: 0, error: null },
+    tcgdex: { sets: 0, cards: 0, refreshed: 0, failed: 0, docs: noDocs() },
+    justtcg: { sets: 0, cards: 0, refreshed: 0, searched: 0, left: 0, keys: 0, error: null, docs: noDocs() },
   };
   log(`Участников: ${members}, карт в альбомах: ${cards.length}`);
 
@@ -199,9 +223,17 @@ export async function refreshClubPrices(db: Firestore, options: RefreshOptions =
     report.tcgdex.refreshed += fresh.details.size;
     report.tcgdex.failed += failed;
     // Отметка задачи — только если сет освежён целиком: иначе браузер ещё покажет свежую цену сам
-    await writePrices(db, docId, { cards: fresh.updates, history: fresh.history }, today, failed === 0);
-    log(`TCGdex ${docId}: карт ${unique.length}, освежено ${fresh.details.size}${failed ? `, не ответил по ${failed}` : ''}`);
+    const written = await writePrices(db, docId, { cards: fresh.updates, history: fresh.history }, today, failed === 0);
+    report.tcgdex.docs[written] += 1;
+    log(
+      `TCGdex ${docId}: карт ${unique.length}, уже свежих ${unique.length - stale.length}, освежено ${fresh.details.size}` +
+        (failed ? `, не ответил по ${failed} — документ без отметки задачи` : ''),
+    );
   }
+  log(
+    `TCGdex итог: документов ${report.tcgdex.sets}, помечено задачей ${report.tcgdex.docs.marked}, ` +
+      `освежено частично ${report.tcgdex.docs.partial}, не тронуто ${report.tcgdex.docs.skipped}`,
+  );
 
   // 2. JustTCG: доллары японских карт по ключам клуба
   const refs = japaneseTargets(cards, details);
@@ -209,10 +241,14 @@ export async function refreshClubPrices(db: Firestore, options: RefreshOptions =
     .filter((item) => item.enabled)
     .map((item) => item.key);
   report.justtcg.keys = keys.length;
+  const codes = new Set(refs.map((ref) => ref.setCode.trim().toUpperCase()));
+  log(`JustTCG: включённых ключей клуба в config/justtcg — ${keys.length}, японских сетов в альбомах — ${codes.size}`);
   if (refs.length === 0) return report;
   if (keys.length === 0) {
     report.justtcg.error = 'no-key';
-    log('JustTCG: в config/justtcg нет включённых ключей, доллары японских карт не освежены');
+    report.justtcg.sets = codes.size;
+    report.justtcg.docs.skipped = codes.size;
+    log(`JustTCG: ключей JustTCG нет — японские цены не освежены, документы jt_* (${codes.size}) не тронуты и не помечены`);
     return report;
   }
 
@@ -223,7 +259,7 @@ export async function refreshClubPrices(db: Firestore, options: RefreshOptions =
     for (const ref of refs) push(sets, ref.setCode.trim().toUpperCase(), ref);
     const known = new Map<string, Record<string, StoredJapanesePrice>>();
     for (const code of sets.keys()) known.set(code, await readCards<StoredJapanesePrice>(db, jpPriceDocId(code)));
-    const fresh = new Map<string, { cards: Record<string, StoredJapanesePrice>; history: Record<string, unknown> }>();
+    const fresh = new Map<string, { cards: Record<string, StoredJapanesePrice>; history: Record<string, Record<string, unknown>> }>();
     const freshOf = (code: string) => {
       let entry = fresh.get(code);
       if (!entry) fresh.set(code, (entry = { cards: {}, history: {} }));
@@ -290,13 +326,17 @@ export async function refreshClubPrices(db: Firestore, options: RefreshOptions =
       const stored = known.get(code)!;
       const complete = sets.get(code)!.every((ref) => stored[normalizeNumber(ref.number)]?.d === today);
       // Отметка задачи — только у сета, освежённого целиком
-      await writePrices(db, jpPriceDocId(code), entry ?? { cards: {}, history: {} }, today, complete);
+      const written = await writePrices(db, jpPriceDocId(code), entry ?? { cards: {}, history: {} }, today, complete);
+      report.justtcg.docs[written] += 1;
+      if (!complete) log(`JustTCG ${jpPriceDocId(code)}: освежены не все карты — документ без отметки задачи`);
     }
     report.justtcg.left = Object.values(store.states).reduce((sum, state) => sum + (state.usage?.dayLeft ?? 0), 0);
     log(
       `JustTCG: сетов ${report.justtcg.sets}, карт ${report.justtcg.cards}, освежено ${report.justtcg.refreshed}, ` +
         `искали ${report.justtcg.searched}, осталось запросов на сегодня ${report.justtcg.left}` +
-        (report.justtcg.error ? `, остановились: ${report.justtcg.error}` : ''),
+        (report.justtcg.error ? `, остановились: ${report.justtcg.error}` : '') +
+        `; документов помечено задачей ${report.justtcg.docs.marked}, освежено частично ${report.justtcg.docs.partial}, ` +
+        `не тронуто ${report.justtcg.docs.skipped}`,
     );
   } finally {
     setKeyStateStore();

@@ -289,8 +289,16 @@ describe('ежедневная задача цен', () => {
     const report = await refreshClubPrices(adminFirestore(admin), { today });
 
     expect(report.members).toBe(2);
-    expect(report.tcgdex).toEqual({ sets: 2, cards: 2, refreshed: 2, failed: 0 });
-    expect(report.justtcg).toMatchObject({ sets: 2, cards: 2, refreshed: 2, searched: 1, keys: 2, error: null });
+    expect(report.tcgdex).toEqual({ sets: 2, cards: 2, refreshed: 2, failed: 0, docs: { marked: 2, partial: 0, skipped: 0 } });
+    expect(report.justtcg).toMatchObject({
+      sets: 2,
+      cards: 2,
+      refreshed: 2,
+      searched: 1,
+      keys: 2,
+      error: null,
+      docs: { marked: 2, partial: 0, skipped: 0 },
+    });
 
     expect(await read('prices/sv03')).toEqual({ cards: { 'sv03-125': { u: 24.8, e: 19.5, d: today } }, server: today });
     expect(await read(`prices/sv03/months/${month}`)).toEqual({ 'sv03-125': { [dd]: { u: 24.8, e: 19.5 } } });
@@ -330,33 +338,111 @@ describe('ежедневная задача цен', () => {
     expect(after).toEqual([]);
   });
 
-  it('второй запуск в тот же день ничего не спрашивает у баз', async () => {
+  it('второй запуск в тот же день ничего не спрашивает у баз и не стирает уже свежие карты', async () => {
     await seedClub();
     jobFetch();
     await refreshClubPrices(adminFirestore(admin), { today });
+    const before = { sv03: await read('prices/sv03'), mbg: await read('prices/jt_MBG'), month: await read(`prices/sv03/months/${month}`) };
     const calls = jobFetch();
     const report = await refreshClubPrices(adminFirestore(admin), { today });
     expect(calls).toEqual([]);
     expect(report.tcgdex.refreshed).toBe(0);
     expect(report.justtcg.refreshed).toBe(0);
+    expect(report.tcgdex.docs.marked).toBe(2);
+    expect(await read('prices/sv03')).toEqual(before.sv03);
+    expect(await read('prices/jt_MBG')).toEqual(before.mbg);
+    expect(await read(`prices/sv03/months/${month}`)).toEqual(before.month);
   });
 
-  it('без ключей JustTCG освежает TCGdex и честно говорит, что доллары не освежены', async () => {
+  it('документы, которые браузер уже освежил сегодня, остаются целыми: задача только ставит отметку', async () => {
+    await seedClub();
+    // Так было в binder-54fb1 21 ноября 2026: браузер освежил цены днём, а задача записала пустую карту cards
+    const sv03 = { 'sv03-125': { u: 30, e: 25, d: today }, 'sv03-999': { u: 1, e: 1, d: '2026-11-01' } };
+    const mbg = { '3': { d: today, j: 'pokemon-japan-mbg-mega-gengar-ex', n: 'Mega Gengar ex', v: { Holofoil: 5.81 } } };
+    const history = { 'sv03-125': { '01': { u: 20, e: 18 }, [dd]: { u: 30, e: 25 } } };
+    await seed('prices/sv03', { cards: sv03 });
+    await seed('prices/ja_SV2a', { cards: { 'SV2a-094': { u: null, e: 3, d: today } } });
+    await seed('prices/jt_MBG', { cards: mbg });
+    await seed('prices/jt_SV2A', { cards: { '94': { d: today, j: 'pokemon-japan-sv2a-mew-ex-094', n: 'Mew ex', v: { Holofoil: 12 } } } });
+    await seed(`prices/sv03/months/${month}`, history);
+    const calls = jobFetch();
+    await refreshClubPrices(adminFirestore(admin), { today });
+    expect(calls).toEqual([]);
+    expect(await read('prices/sv03')).toEqual({ cards: sv03, server: today });
+    expect(await read('prices/jt_MBG')).toEqual({ cards: mbg, server: today });
+    expect(await read(`prices/sv03/months/${month}`)).toEqual(history);
+  });
+
+  it('освежённая карта пишется точечно: соседние карты документа и прежние дни истории остаются', async () => {
+    await seedClub();
+    await seed('prices/sv03', { cards: { 'sv03-125': { u: 1, e: 1, d: '2026-11-01' }, 'sv03-999': { u: 2, e: 2, d: '2026-11-01' } } });
+    await seed(`prices/sv03/months/${month}`, { 'sv03-125': { '01': { u: 1, e: 1 } }, 'sv03-999': { '01': { u: 2, e: 2 } } });
+    jobFetch();
+    await refreshClubPrices(adminFirestore(admin), { today });
+    expect((await read('prices/sv03'))?.cards).toEqual({
+      'sv03-125': { u: 24.8, e: 19.5, d: today },
+      'sv03-999': { u: 2, e: 2, d: '2026-11-01' },
+    });
+    expect(await read(`prices/sv03/months/${month}`)).toEqual({
+      'sv03-125': { '01': { u: 1, e: 1 }, [dd]: { u: 24.8, e: 19.5 } },
+      'sv03-999': { '01': { u: 2, e: 2 } },
+    });
+  });
+
+  it('без ключей JustTCG освежает TCGdex, а документы jt_* не трогает и не помечает', async () => {
     await seedClub();
     await seed('config/justtcg', { items: [], updatedAt: Timestamp.now(), updatedBy: 'alice' });
+    const before = await read('prices/jt_MBG');
     const calls = jobFetch();
-    const report = await refreshClubPrices(adminFirestore(admin), { today });
+    const lines: string[] = [];
+    const report = await refreshClubPrices(adminFirestore(admin), { today, log: (line) => lines.push(line) });
     expect(report.justtcg.error).toBe('no-key');
+    expect(report.justtcg.docs).toEqual({ marked: 0, partial: 0, skipped: 2 });
     expect(calls.filter((call) => call.includes('justtcg'))).toEqual([]);
-    expect((await read('prices/jt_MBG'))?.server).toBeUndefined();
+    expect(await read('prices/jt_MBG')).toEqual(before);
+    expect(await read('prices/jt_SV2A')).toBeUndefined();
     expect((await read('prices/sv03'))?.server).toBe(today);
+    expect(lines.some((line) => line.includes('ключей JustTCG нет — японские цены не освежены'))).toBe(true);
+  });
+
+  it('пустой ответ JustTCG не стирает известную цену и не ставит отметку', async () => {
+    await seedClub();
+    const before = await read('prices/jt_MBG');
+    stubFetch((url) => {
+      if (url.host === 'api.tcgdex.net' && url.pathname === '/v2/en/cards/sv03-125') return json(SV03_125);
+      if (url.host === 'api.tcgdex.net' && url.pathname === '/v2/ja/cards/SV2a-094') return json(SV2A_094);
+      if (url.host === 'api.justtcg.com') return json({ data: [], _metadata: META });
+      return undefined;
+    });
+    const report = await refreshClubPrices(adminFirestore(admin), { today });
+    expect(await read('prices/jt_MBG')).toEqual(before);
+    // Новую карту JustTCG сегодня не нашёл: это свежий ответ «не нашлась» (j: null), такой документ помечается
+    expect(report.justtcg.docs).toEqual({ marked: 1, partial: 0, skipped: 1 });
+    expect(await read('prices/jt_SV2A')).toEqual({ cards: { '94': { d: today, j: null, n: null, v: {} } }, server: today });
+  });
+
+  it('если все ключи JustTCG упёрлись в лимит, документы jt_* остаются как были', async () => {
+    await seedClub();
+    const before = await read('prices/jt_MBG');
+    stubFetch((url) => {
+      if (url.host === 'api.tcgdex.net' && url.pathname === '/v2/en/cards/sv03-125') return json(SV03_125);
+      if (url.host === 'api.justtcg.com') return json({ error: 'limit', code: 'DAILY_LIMIT_EXCEEDED' }, 429);
+      return undefined;
+    });
+    const report = await refreshClubPrices(adminFirestore(admin), { today });
+    expect(report.justtcg.error).toBe('rate-limit');
+    expect(report.justtcg.docs).toEqual({ marked: 0, partial: 0, skipped: 2 });
+    expect(await read('prices/jt_MBG')).toEqual(before);
+    expect(await read('prices/jt_SV2A')).toBeUndefined();
   });
 
   it('если TCGdex не отдал карту, сет освежается без отметки задачи: браузер покажет цену сам', async () => {
     await seedClub();
+    await seed('prices/sv03', { cards: { 'sv03-125': { u: 1, e: 1, d: '2026-11-01' } }, server: '2026-11-20' });
     stubFetch(() => undefined);
     const report = await refreshClubPrices(adminFirestore(admin), { today });
-    expect(report.tcgdex).toMatchObject({ refreshed: 0, failed: 2 });
-    expect(await read('prices/sv03')).toBeUndefined();
+    expect(report.tcgdex).toMatchObject({ refreshed: 0, failed: 2, docs: { marked: 0, partial: 0, skipped: 2 } });
+    expect(await read('prices/sv03')).toEqual({ cards: { 'sv03-125': { u: 1, e: 1, d: '2026-11-01' } }, server: '2026-11-20' });
+    expect(await read('prices/ja_SV2a')).toBeUndefined();
   });
 });
